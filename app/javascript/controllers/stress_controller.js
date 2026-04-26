@@ -12,14 +12,14 @@ const STRESS_STYLES = {
 }
 
 export default class extends Controller {
-  static targets = ["physicalInput", "mentalInput"]
+  static targets = ["fateCount"]
   static values = { autoSubmit: Boolean }
 
   connect() {
     this.form = this.element.querySelector("form")
   }
 
-  toggle(event) {
+  async toggle(event) {
     event.preventDefault()
 
     const button = event.currentTarget
@@ -42,17 +42,57 @@ export default class extends Controller {
     }
 
     if (this.autoSubmitValue && this.form) {
-      this.form.requestSubmit()
+      await this.submitForm(new FormData(this.form))
     }
   }
 
-  updateCount(type, value) {
-    const countElement = this.element.querySelector(`[data-stress-count="${type}"]`)
-    if (countElement) countElement.textContent = value
+  async changeFate(event) {
+    event.preventDefault()
+    const button = event.currentTarget
+    const delta = Number(button.dataset.fateDelta || 0)
+    const current = Number(this.fateCountTarget.textContent.trim() || 0)
+    const next = Math.max(0, current + delta)
+    if (next === current) return
+
+    const data = { character: { fate_points: next } }
+    const response = await this.submitForm(data)
+    if (response && response.fate_points !== undefined) {
+      this.fateCountTarget.textContent = response.fate_points
+    }
   }
 
-  updateInput(type, value) {
-    const target = type === "physical" ? this.physicalInputTarget : this.mentalInputTarget
-    if (target) target.value = value
+  async submitForm(payload) {
+    const action = this.form.action
+    const method = this.form.querySelector('input[name="_method"]')?.value || this.form.method
+    const headers = {
+      Accept: "application/json",
+      "X-CSRF-Token": this.csrfToken()
+    }
+
+    let body
+    if (payload instanceof FormData) {
+      body = payload
+    } else {
+      headers["Content-Type"] = "application/json"
+      body = JSON.stringify(payload)
+    }
+
+    const response = await fetch(action, {
+      method: method.toUpperCase(),
+      body,
+      headers,
+      credentials: "same-origin"
+    })
+
+    if (!response.ok) {
+      console.error("Error updating character", response)
+      return null
+    }
+
+    return response.json().catch(() => null)
+  }
+
+  csrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")
   }
 }

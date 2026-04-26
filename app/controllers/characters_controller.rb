@@ -21,6 +21,31 @@ class CharactersController < ApplicationController
     end
   end
 
+  def import
+    @character = Character.new
+  end
+
+  def import_create
+    @character = Character.new
+    json_text = import_json_text
+
+    begin
+      payload = JSON.parse(json_text)
+    rescue JSON::ParserError => e
+      @character.errors.add(:base, "JSON inválido: #{e.message}")
+      return render :import, status: :unprocessable_entity
+    end
+
+    attributes = payload.slice("name", "description", "aspects", "skills", "stunts", "extras")
+    @character.assign_attributes(attributes)
+
+    if @character.save
+      redirect_to @character, notice: "Personaje importado correctamente."
+    else
+      render :import, status: :unprocessable_entity
+    end
+  end
+
   def edit
     @character = Character.find(params[:id])
   end
@@ -42,9 +67,15 @@ class CharactersController < ApplicationController
     attributes[:fate_points] = [attributes[:fate_points].to_i, 0].max if attributes.key?(:fate_points)
 
     if @character.update(attributes)
-      redirect_to @character, notice: "¡Personaje actualizado con éxito!"
+      respond_to do |format|
+        format.html { redirect_to @character, notice: "¡Personaje actualizado con éxito!" }
+        format.json { render json: { fate_points: @character.fate_points, physical_stress: @character.physical_stress, mental_stress: @character.mental_stress } }
+      end
     else
-      render :edit, status: :unprocessable_entity
+      respond_to do |format|
+        format.html { render :edit, status: :unprocessable_entity }
+        format.json { render json: { errors: @character.errors.full_messages }, status: :unprocessable_entity }
+      end
     end
   end
 
@@ -54,6 +85,16 @@ class CharactersController < ApplicationController
   end
 
   private
+
+  def import_json_text
+    if params.dig(:character_import, :json).present?
+      params[:character_import][:json]
+    elsif params.dig(:character_import, :file).present?
+      params[:character_import][:file].read
+    else
+      ""
+    end
+  end
 
   def character_params
   # Observa cómo permitimos 'aspects' como una lista de objetos con título, nombre y descripción,

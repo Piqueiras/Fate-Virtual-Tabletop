@@ -1,0 +1,47 @@
+<div class="max-w-3xl mx-auto mt-10 p-4">
+  <div class="flex justify-between items-center gap-10 mb-8">
+    <h1 class="text-4xl font-extrabold text-gray-800">Importar Personaje</h1>
+    <%= link_to "Volver a la lista", characters_path, class: "text-indigo-600 hover:text-indigo-800 font-semibold" %>
+  </div>
+
+  <div class="bg-white rounded-3xl shadow-sm border border-gray-200 p-6">
+    <% if @character.errors.any? %>
+      <div class="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <p class="font-semibold">No se pudo importar el personaje:</p>
+        <ul class="mt-2 list-disc list-inside">
+          <% @character.errors.full_messages.each do |message| %>
+            <li><%= message %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <% json_placeholder = %Q({
+      "name": "Nombre",
+      "description": "Descripción...",
+      "aspects": [ ... ],
+      "skills": { "4": ["Atletismo"], "3": [] },
+      "stunts": [ { "title": "Proeza", "skill": "Físico", "description": "..." } ],
+      "extras": ["Extra 1", "Extra 2"]
+    }) %>
+
+    <%= form_with url: import_create_characters_path, local: true, multipart: true do |f| %>
+      <div class="space-y-6">
+        <div>
+          <label class="block text-sm font-medium text-slate-700">JSON del personaje</label>
+          <%= f.text_area :json, name: "character_import[json]", rows: 12, class: "mt-2 w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500", placeholder: json_placeholder %>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700">O subir archivo JSON</label>
+          <%= f.file_field :file, name: "character_import[file]", accept: ".json", class: "mt-2 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700" %>
+        </div>
+
+        <div class="flex items-center justify-between gap-4">
+          <%= f.submit "Importar personaje", class: "bg-indigo-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition" %>
+          <%= link_to "Cancelar", characters_path, class: "text-slate-600 hover:text-slate-900" %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>
