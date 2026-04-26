@@ -1,2 +1,113 @@
 class Character < ApplicationRecord
+  has_one_attached :avatar
+
+  SKILLS_LIST = [
+    "Atletismo",
+    "Carisma",
+    "Contactos",
+    "Recursos",
+    "Físico",
+    "Voluntad",
+    "Sigilo",
+    "Percepción",
+    "Disparar",
+    "Empatía",
+    "Seducción",
+    "Engañar",
+    "Investigar",
+    "Máquinas",
+    "Pelear",
+    "Provocar",
+    "Robar",
+    "Saber",
+    "Arcana",
+    "Magia oscura",
+    "Magia santa",
+    "Necromancia"
+  ].freeze
+
+  SKILLS_LEVELS = [
+    { key: "4", label: "Enorme" },
+    { key: "3", label: "Grande" },
+    { key: "2", label: "Bueno" },
+    { key: "1", label: "Normal" }
+  ].freeze
+
+  def skill_level(name)
+    return 0 unless skills.is_a?(Hash)
+
+    SKILLS_LEVELS.each do |level|
+      return level[:key].to_i if Array(skills[level[:key]]).include?(name)
+    end
+
+    0
+  end
+
+  def physical_skill_level
+    skill_level("Físico")
+  end
+
+  def mental_skill_level
+    skill_level("Voluntad")
+  end
+
+  def self.stress_capacity_for_level(level)
+    case level.to_i
+    when 0
+      2
+    when 1, 2
+      3
+    else
+      4
+    end
+  end
+
+  def physical_stress_capacity
+    self.class.stress_capacity_for_level(physical_skill_level)
+  end
+
+  def mental_stress_capacity
+    self.class.stress_capacity_for_level(mental_skill_level)
+  end
+
+  def physical_stress_mask
+    physical_stress.to_i
+  end
+
+  def mental_stress_mask
+    mental_stress.to_i
+  end
+
+  def permanent_export
+    {
+      name: name,
+      description: description,
+      aspects: aspects,
+      skills: skills,
+      stunts: stunts,
+      extras: extras
+    }
+  end
+
+  def physical_stress_slot?(index)
+    (physical_stress_mask & (1 << index)).positive?
+  end
+
+  def mental_stress_slot?(index)
+    (mental_stress_mask & (1 << index)).positive?
+  end
+
+  def filled_physical_stress
+    physical_stress_mask.to_s(2).count("1")
+  end
+
+  def filled_mental_stress
+    mental_stress_mask.to_s(2).count("1")
+  end
+
+  def self.stress_mask_for_slots(slot_values)
+    Array(slot_values).each_with_index.reduce(0) do |mask, (value, index)|
+      value.to_s == "1" ? mask | (1 << index) : mask
+    end
+  end
 end

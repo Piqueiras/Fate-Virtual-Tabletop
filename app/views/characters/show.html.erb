@@ -1,0 +1,180 @@
+<div class="max-w-6xl mx-auto mt-10 p-6">
+  <div class="flex justify-between items-center mb-8 border-b pb-4">
+    <%= link_to "← Volver", characters_path, class: "text-gray-500 hover:text-indigo-600 font-medium transition" %>
+    <div class="flex gap-3">
+      <%= link_to "Editar Ficha", edit_character_path(@character), class: "bg-amber-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-amber-600 shadow-sm transition" %>
+      <%= link_to "Exportar JSON", export_character_path(@character, format: :json), class: "bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-semibold hover:bg-slate-100 transition", target: "_blank" %>
+      <%= link_to "Eliminar", character_path(@character), data: { turbo_method: :delete, turbo_confirm: "¿Borrar personaje?" }, class: "bg-red-50 text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-red-100 transition" %>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-1 space-y-6">
+      <div class="bg-white rounded-3xl shadow-xl p-2 border border-gray-100 overflow-hidden">
+        <% if @character.avatar.attached? %>
+          <%= image_tag @character.avatar, class: "w-full h-auto rounded-2xl object-cover" %>
+        <% else %>
+          <div class="h-64 bg-slate-100 flex items-center justify-center rounded-2xl text-slate-400 font-bold uppercase tracking-widest italic">Sin Imagen</div>
+        <% end %>
+      </div>
+
+      <div class="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+        <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full"></div>
+        <h3 class="text-xs font-black uppercase tracking-widest mb-2 opacity-80">Puntos de Destino</h3>
+        <div class="flex items-center justify-between gap-4 relative">
+          <span class="text-5xl font-black"><%= @character.fate_points || 0 %></span>
+          <div class="flex flex-col items-end gap-2">
+            <div class="flex gap-2">
+              <%= button_to character_path(@character), method: :patch, params: { character: { fate_points: [(@character.fate_points.to_i - 1), 0].max } }, class: "h-10 w-10 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white font-black transition", form: { data: { turbo: false } } do %>
+                −
+              <% end %>
+              <%= button_to character_path(@character), method: :patch, params: { character: { fate_points: @character.fate_points.to_i + 1 } }, class: "h-10 w-10 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white font-black transition", form: { data: { turbo: false } } do %>
+                +
+              <% end %>
+            </div>
+            <p class="text-xs opacity-70">Recuperación: 3</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100" data-controller="stress" data-stress-auto-submit-value="true">
+        <%= form_with model: @character, url: character_path(@character), method: :patch, local: true do |f| %>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+              <div class="mb-3">
+                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Estrés Físico</h4>
+              </div>
+              <div class="flex gap-2">
+                <% @character.physical_stress_capacity.times do |n| %>
+                  <% filled = @character.physical_stress_slot?(n) %>
+                  <button type="button" data-action="click->stress#toggle" data-stress-type="physical" data-stress-slot="<%= n %>" class="stress-box w-10 h-10 border-2 rounded-xl flex items-center justify-center font-bold text-slate-700 <%= filled ? 'bg-red-600 text-white border-red-600' : 'bg-white border-slate-300 hover:border-red-400' %>"><%= n + 1 %></button>
+                  <input type="hidden" name="character[physical_stress_slots][]" value="<%= filled ? 1 : 0 %>" data-stress-type="physical" data-stress-slot="<%= n %>" />
+                <% end %>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+              <div class="mb-3">
+                <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Estrés Mental</h4>
+              </div>
+              <div class="flex gap-2">
+                <% @character.mental_stress_capacity.times do |n| %>
+                  <% filled = @character.mental_stress_slot?(n) %>
+                  <button type="button" data-action="click->stress#toggle" data-stress-type="mental" data-stress-slot="<%= n %>" class="stress-box w-10 h-10 border-2 rounded-xl flex items-center justify-center font-bold text-slate-700 <%= filled ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300 hover:border-blue-400' %>"><%= n + 1 %></button>
+                  <input type="hidden" name="character[mental_stress_slots][]" value="<%= filled ? 1 : 0 %>" data-stress-type="mental" data-stress-slot="<%= n %>" />
+                <% end %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="lg:col-span-2 space-y-6">
+      <div class="mb-4">
+        <h1 class="text-6xl font-black text-slate-900 tracking-tighter"><%= @character.name %></h1>
+        <p class="text-xl text-slate-500 italic mt-2 leading-relaxed"><%= @character.description %></p>
+      </div>
+
+      <section class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50 border-b border-gray-100">
+          <h2 class="font-bold text-slate-700 uppercase tracking-widest text-xs">Aspectos</h2>
+        </div>
+        <div class="p-6 space-y-4">
+          <% (@character.aspects || []).each_with_index do |aspect, i| %>
+            <% if aspect.is_a?(Hash) %>
+              <div class="space-y-2">
+                <div class="flex items-start gap-4 group">
+                  <span class="w-32 flex-shrink-0 text-[10px] font-black text-indigo-400 uppercase pt-1.5 group-hover:text-indigo-600 transition"><%= aspect["title"].presence || (i == 0 ? "Concepto Principal" : i == 1 ? "Dificultad" : "Aspecto") %></span>
+                  <div class="flex-grow">
+                    <p class="text-lg text-slate-800 font-semibold border-b border-slate-100 pb-2"><%= aspect["name"] %></p>
+                    <% if aspect["description"].present? %>
+                      <p class="mt-2 text-sm text-slate-500"><%= aspect["description"] %></p>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% else %>
+              <div class="flex items-start gap-4 group">
+                <span class="w-32 flex-shrink-0 text-[10px] font-black text-indigo-400 uppercase pt-1.5 group-hover:text-indigo-600 transition"><%= i == 0 ? "Concepto Principal" : (i == 1 ? "Dificultad" : "Aspecto") %></span>
+                <p class="text-lg text-slate-800 font-semibold border-b border-slate-100 pb-2 flex-grow"><%= aspect %></p>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+      </section>
+
+      <section class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50 border-b border-gray-100">
+          <h2 class="font-bold text-slate-700 uppercase tracking-widest text-xs">Pirámide de Habilidades</h2>
+        </div>
+        <div class="p-8 space-y-6">
+          <% if @character.skills.is_a?(Hash) %>
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+              <% Character::SKILLS_LEVELS.each do |level| %>
+                <% skills = Array(@character.skills[level[:key]]).reject(&:blank?) %>
+                <div class="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+                  <div class="mb-4 flex items-center justify-between gap-3">
+                    <p class="text-xs uppercase tracking-widest text-slate-500 font-bold"><%= level[:label] %></p>
+                    <span class="text-indigo-600 font-black">+<%= level[:key] %></span>
+                  </div>
+                  <% if skills.any? %>
+                    <div class="flex flex-wrap gap-2">
+                      <% skills.each do |skill| %>
+                        <span class="px-3 py-1.5 bg-white text-slate-800 rounded-full text-sm font-semibold border border-slate-200 shadow-sm"><%= skill %></span>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <p class="text-slate-400 text-sm italic">Sin habilidades</p>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          <% else %>
+            <p class="text-slate-400 italic">No hay habilidades configuradas aún.</p>
+          <% end %>
+        </div>
+      </section>
+
+      <div class="grid grid-cols-1 gap-6">
+        <section class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="px-6 py-4 bg-slate-50 border-b border-gray-100"><h2 class="font-bold text-slate-700 uppercase tracking-widest text-xs">Proezas</h2></div>
+          <div class="p-6 space-y-4">
+            <% (@character.stunts || []).each do |stunt| %>
+              <% if stunt.is_a?(Hash) %>
+                <div class="text-slate-700 leading-relaxed border-l-4 border-amber-400 pl-4 py-3 bg-amber-50/30 rounded-r-lg">
+                  <div class="flex flex-col gap-1">
+                    <div class="text-sm font-semibold text-slate-900">
+                      <%= stunt["title"].presence || "Proeza" %>
+                      <% if stunt["skill"].present? %>
+                        <span class="text-indigo-600 font-medium">— <%= stunt["skill"] %></span>
+                      <% end %>
+                    </div>
+                    <% if stunt["description"].present? %>
+                      <div class="text-sm text-slate-700"><%= stunt["description"] %></div>
+                    <% end %>
+                  </div>
+                </div>
+              <% else %>
+                <div class="text-slate-700 text-sm leading-relaxed border-l-4 border-amber-400 pl-4 py-1 bg-amber-50/30 rounded-r-lg"><%= stunt %></div>
+              <% end %>
+            <% end %>
+          </div>
+        </section>
+
+        <section class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="px-6 py-4 bg-slate-50 border-b border-gray-100"><h2 class="font-bold text-slate-700 uppercase tracking-widest text-xs">Extras</h2></div>
+          <div class="p-6 space-y-2">
+            <% (@character.extras || []).each do |extra| %>
+              <div class="text-slate-600 text-sm flex items-center gap-3">
+                <div class="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                <%= extra %>
+              </div>
+            <% end %>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+</div>

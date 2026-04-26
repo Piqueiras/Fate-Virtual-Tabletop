@@ -1,0 +1,9 @@
+import { Application } from "@hotwired/stimulus"
+import NestedFormController from "controllers/nested_form_controller"
+import SkillPyramidController from "controllers/skill_pyramid_controller"
+import StressController from "controllers/stress_controller"
+
+const application = Application.start()
+application.register("nested-form", NestedFormController)
+application.register("skill-pyramid", SkillPyramidController)
+application.register("stress", StressController)

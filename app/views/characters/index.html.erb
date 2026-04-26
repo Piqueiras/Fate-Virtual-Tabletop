@@ -1,0 +1,31 @@
+<div class="max-w-5xl mx-auto mt-10 p-4">
+  <div class="flex justify-between items-center mb-8">
+    <h1 class="text-4xl font-extrabold text-gray-800">Mis Personajes de Fate</h1>
+    <%= link_to "Crear Nuevo Personaje", new_character_path, class: "bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition" %>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <% @characters.each do |character| %>
+      
+      <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex flex-col">
+        
+        <div class="h-48 bg-gray-100 flex justify-center items-center overflow-hidden">
+          <% if character.avatar.attached? %>
+            <%= image_tag character.avatar, class: "w-full h-full object-cover" %>
+          <% else %>
+            <span class="text-gray-400 font-medium">Sin imagen</span>
+          <% end %>
+        </div>
+
+        <div class="p-5 flex flex-col flex-grow justify-between">
+          <h2 class="text-2xl font-bold text-gray-900 mb-3"><%= character.name %></h2>
+
+          <div class="mt-4 text-right">
+            <%= link_to "Ver Ficha Completa →", character, class: "text-indigo-600 hover:text-indigo-800 font-semibold text-sm" %>
+          </div>
+        </div>
+
+      </div>
+    <% end %>
+  </div>
+</div>

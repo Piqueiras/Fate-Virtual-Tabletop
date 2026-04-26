@@ -1,0 +1,184 @@
+<%= form_with model: character, class: "space-y-6" do |f| %>
+  
+  <div>
+    <%= f.label :name, "Nombre", class: "block text-sm font-medium text-gray-700" %>
+    <%= f.text_field :name, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div>
+    <%= f.label :description, "Descripción Breve", class: "block text-sm font-medium text-gray-700" %>
+    <%= f.text_area :description, rows: 3, class: "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+  </div>
+
+  <div>
+    <%= f.label :avatar, "Imagen del Personaje", class: "block text-sm font-medium text-gray-700" %>
+    <%= f.file_field :avatar, class: "mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700" %>
+  </div>
+
+  <div class="bg-gray-50 p-6 rounded-xl border border-gray-200" data-controller="nested-form">
+    <h3 class="text-lg font-bold mb-4">Aspectos</h3>
+    
+    <% initial_aspects = Array(character.aspects.presence || [{ "title" => "", "name" => "", "description" => "" }]).map do |aspect|
+         aspect.is_a?(Hash) ? aspect : { "title" => "", "name" => aspect, "description" => "" }
+       end %>
+
+    <div data-nested-form-target="container" class="space-y-4">
+      <% initial_aspects.each do |aspect| %>
+        <div class="nested-fields bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex-1 space-y-1">
+              <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
+              <input type="text" name="character[aspects][][title]" value="<%= aspect["title"] %>" placeholder="Concepto principal, Dificultad, Relación con el mundo..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+            </div>
+            <button type="button" data-action="click->nested-form#remove" class="text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded">×</button>
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</label>
+            <input type="text" name="character[aspects][][name]" value="<%= aspect["name"] %>" placeholder="Ej: Concepto principal..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción (opcional)</label>
+            <textarea name="character[aspects][][description]" rows="2" placeholder="Descripción opcional..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"><%= aspect["description"] %></textarea>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <template data-nested-form-target="template">
+      <div class="nested-fields bg-white rounded-xl border border-gray-200 p-4 space-y-3 mt-2">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex-1 space-y-1">
+            <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
+            <input type="text" name="character[aspects][][title]" placeholder="Concepto principal, Dificultad, Relación con el mundo..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+          </div>
+          <button type="button" data-action="click->nested-form#remove" class="text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded">×</button>
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</label>
+          <input type="text" name="character[aspects][][name]" placeholder="Ej: Concepto principal..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción (opcional)</label>
+          <textarea name="character[aspects][][description]" rows="2" placeholder="Descripción opcional..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"></textarea>
+        </div>
+      </div>
+    </template>
+
+    <button type="button" data-action="click->nested-form#add" class="mt-4 text-sm bg-white border border-gray-300 px-3 py-1 rounded shadow-sm hover:bg-gray-50">
+      + Añadir Aspecto
+    </button>
+  </div>
+
+  <div class="bg-gray-50 p-6 rounded-xl border border-gray-200" data-controller="nested-form">
+    <h3 class="text-lg font-bold mb-4">Proezas</h3>
+
+    <% initial_stunts = Array(character.stunts.presence || [{ "title" => "", "skill" => "", "description" => "" }]).map do |stunt|
+         stunt.is_a?(Hash) ? stunt : { "title" => "", "skill" => "", "description" => stunt.to_s }
+       end %>
+
+    <div data-nested-form-target="container" class="space-y-4">
+      <% initial_stunts.each do |stunt| %>
+        <div class="nested-fields bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex-1 space-y-1">
+              <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
+              <input type="text" name="character[stunts][][title]" value="<%= stunt["title"] %>" placeholder="Nombre de la proeza" class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+            </div>
+            <button type="button" data-action="click->nested-form#remove" class="text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded">×</button>
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Habilidad asociada</label>
+            <input type="text" name="character[stunts][][skill]" value="<%= stunt["skill"] %>" placeholder="Ej: Atletismo, Magia oscura..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción</label>
+            <textarea name="character[stunts][][description]" rows="2" placeholder="Efecto de la proeza..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"><%= stunt["description"] %></textarea>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <template data-nested-form-target="template">
+      <div class="nested-fields bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex-1 space-y-1">
+            <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
+            <input type="text" name="character[stunts][][title]" placeholder="Nombre de la proeza" class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+          </div>
+          <button type="button" data-action="click->nested-form#remove" class="text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded">×</button>
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Habilidad asociada</label>
+          <input type="text" name="character[stunts][][skill]" placeholder="Ej: Atletismo, Magia oscura..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción</label>
+          <textarea name="character[stunts][][description]" rows="2" placeholder="Efecto de la proeza..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"></textarea>
+        </div>
+      </div>
+    </template>
+
+    <button type="button" data-action="click->nested-form#add" class="mt-4 text-sm bg-white border border-gray-300 px-3 py-1 rounded shadow-sm hover:bg-gray-50">
+      + Añadir Proeza
+    </button>
+  </div>
+
+  <div class="bg-gray-50 p-6 rounded-xl border border-gray-200" data-controller="skill-pyramid">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-lg font-bold">Pirámide de Habilidades</h3>
+        <p class="text-sm text-slate-500">Arrastra las habilidades a cada categoría. Puedes tener varias por nivel.</p>
+      </div>
+    </div>
+
+    <% assigned = (character.skills || {}).with_indifferent_access %>
+    <% assigned_names = assigned.values.flatten.compact %>
+    <% unassigned_skills = Character::SKILLS_LIST - assigned_names %>
+
+    <div class="space-y-4">
+      <% Character::SKILLS_LEVELS.each do |level| %>
+        <div class="rounded-3xl border border-slate-200 bg-white p-4">
+          <div class="mb-3 flex items-center justify-between gap-4">
+            <div>
+              <p class="text-xs uppercase tracking-widest text-slate-500 font-bold"><%= level[:label] %></p>
+            </div>
+            <span class="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-2 py-1 text-xs font-semibold">+<%= level[:key] %></span>
+          </div>
+          <div data-skill-pyramid-target="level" data-level="<%= level[:key] %>" data-action="dragover->skill-pyramid#allowDrop dragenter->skill-pyramid#allowDrop dragleave->skill-pyramid#leaveDrop drop->skill-pyramid#drop" class="min-h-[120px] rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-3 flex flex-wrap gap-2">
+            <% Array(assigned[level[:key]]).each do |skill| %>
+              <div class="skill-chip flex items-center gap-3 rounded-2xl border px-3 py-2 shadow-sm cursor-move <%= skill == 'Físico' ? 'border-red-500 bg-red-50 text-red-700' : skill == 'Voluntad' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700' %>" draggable="true" data-skill-name="<%= skill %>" data-action="dragstart->skill-pyramid#dragStart">
+                <span class="text-sm font-medium"><%= skill %></span>
+                <input type="hidden" name="character[skills][<%= level[:key] %>][]" value="<%= skill %>">
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <div class="rounded-3xl border border-slate-200 bg-white p-4">
+        <div class="mb-3">
+          <p class="text-xs uppercase tracking-widest text-slate-500 font-bold">Sin asignar</p>
+        </div>
+        <div data-skill-pyramid-target="pool" data-action="dragover->skill-pyramid#allowDrop dragenter->skill-pyramid#allowDrop dragleave->skill-pyramid#leaveDrop drop->skill-pyramid#drop" class="min-h-[120px] rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-3 flex flex-wrap gap-2">
+          <% unassigned_skills.each do |skill| %>
+            <div class="skill-chip flex items-center gap-3 rounded-2xl border px-3 py-2 shadow-sm cursor-move <%= skill == 'Físico' ? 'border-red-500 bg-red-50 text-red-700' : skill == 'Voluntad' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700' %>" draggable="true" data-skill-name="<%= skill %>" data-action="dragstart->skill-pyramid#dragStart">
+              <span class="text-sm font-medium"><%= skill %></span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pt-4">
+    <%= f.submit "Guardar Personaje", class: "w-full bg-indigo-600 text-white py-3 rounded-xl font-bold cursor-pointer hover:bg-indigo-700" %>
+  </div>
+<% end %>
