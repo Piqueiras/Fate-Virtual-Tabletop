@@ -1,7 +1,11 @@
 <div class="max-w-5xl mx-auto mt-10 p-4">
-  <div class="flex justify-between items-center gap-10 mb-8">
-    <h1 class="text-4xl font-extrabold text-gray-800">Mis Personajes de Fate</h1>
-    <div class="flex gap-3">
+<div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+      <div>
+        <h1 class="text-4xl font-extrabold text-gray-800">Mis Personajes de Fate</h1>
+        <p class="text-sm text-slate-500 mt-2">Accede a tus personajes privados y públicos desde aquí.</p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <%= link_to "Personajes Públicos", public_characters_path, class: "bg-slate-100 text-slate-800 font-bold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-200 transition" %>
       <%= link_to "Importar Personaje", import_characters_path, class: "bg-slate-100 text-slate-800 font-bold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-200 transition" %>
       <%= link_to "Crear Nuevo Personaje", new_character_path, class: "bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 transition" %>
     </div>

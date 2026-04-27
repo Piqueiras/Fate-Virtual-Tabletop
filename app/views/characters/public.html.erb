@@ -1,0 +1,42 @@
+<div class="max-w-5xl mx-auto mt-10 p-4">
+  <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+    <div>
+      <h1 class="text-4xl font-extrabold text-gray-800">Personajes Públicos</h1>
+      <p class="text-sm text-slate-500 mt-2">Aquí encontrarás los personajes que otros usuarios han hecho públicos.</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <%= link_to "Volver a Mis Personajes", characters_path, class: "bg-slate-100 text-slate-800 font-bold py-2 px-4 rounded-lg shadow-sm hover:bg-slate-200 transition" %>
+    </div>
+  </div>
+
+  <% if @characters.any? %>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <% @characters.each do |character| %>
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex flex-col">
+          <div class="h-48 bg-gray-100 flex justify-center items-center overflow-hidden">
+            <% if character.avatar.attached? %>
+              <%= image_tag character.avatar, class: "w-full h-full object-cover" %>
+            <% else %>
+              <span class="text-gray-400 font-medium">Sin imagen</span>
+            <% end %>
+          </div>
+
+          <div class="p-5 flex flex-col flex-grow justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-gray-900 mb-2"><%= character.name %></h2>
+              <p class="text-sm text-slate-500">Creado por <strong><%= character.user&.username || "Usuario" %></strong></p>
+            </div>
+
+            <div class="mt-4 text-right">
+              <%= link_to "Ver Ficha Completa →", character, class: "text-indigo-600 hover:text-indigo-800 font-semibold text-sm" %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-200 p-8 text-center">
+      <p class="text-slate-500">No hay personajes públicos disponibles en este momento.</p>
+    </div>
+  <% end %>
+</div>

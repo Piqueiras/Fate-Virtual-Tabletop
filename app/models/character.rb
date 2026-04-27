@@ -1,5 +1,17 @@
 class Character < ApplicationRecord
+  belongs_to :user, optional: true
   has_one_attached :avatar
+
+  scope :publicly_visible, -> { where(is_secret: [false, nil]) }
+  scope :owned_by, ->(user) { where(user: user) }
+
+  def public?
+    !is_secret
+  end
+
+  def private?
+    is_secret
+  end
 
   SKILLS_LIST = [
     "Atletismo",
@@ -27,10 +39,12 @@ class Character < ApplicationRecord
   ].freeze
 
   SKILLS_LEVELS = [
-    { key: "4", label: "Enorme" },
-    { key: "3", label: "Grande" },
-    { key: "2", label: "Bueno" },
-    { key: "1", label: "Normal" }
+    { key: "5", label: "Excelente", display: "+5" },
+    { key: "4", label: "Enorme", display: "+4" },
+    { key: "3", label: "Grande", display: "+3" },
+    { key: "2", label: "Bueno", display: "+2" },
+    { key: "1", label: "Normal", display: "+1" },
+    { key: "-1", label: "Malo", display: "-1" }
   ].freeze
 
   def skill_level(name)
@@ -53,12 +67,16 @@ class Character < ApplicationRecord
 
   def self.stress_capacity_for_level(level)
     case level.to_i
-    when 0
+    when -1, 0
       2
     when 1, 2
       3
-    else
+    when 3, 4
       4
+    when 5
+      5
+    else
+      2
     end
   end
 
@@ -85,7 +103,8 @@ class Character < ApplicationRecord
       aspects: aspects,
       skills: skills,
       stunts: stunts,
-      extras: extras
+      extras: extras,
+      consequences: consequences
     }
   end
 

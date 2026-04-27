@@ -1,18 +1,25 @@
 class CharactersController < ApplicationController
+  before_action :authenticate_user!
+  before_action :set_show_character, only: %i[show export]
+  before_action :set_character, only: %i[edit update toggle_visibility]
+
   def index
-    @characters = Character.all
+    @characters = current_user.characters
+  end
+
+  def public
+    @characters = Character.publicly_visible.where.not(user_id: current_user.id).includes(:user)
   end
 
   def show
-    @character = Character.find(params[:id])
   end
 
   def new
-    @character = Character.new
+    @character = current_user.characters.new
   end
 
   def create
-    @character = Character.new(character_params)
+    @character = current_user.characters.new(character_params)
 
     if @character.save
       redirect_to @character # Si se guarda bien, te lleva a ver su ficha
@@ -22,11 +29,11 @@ class CharactersController < ApplicationController
   end
 
   def import
-    @character = Character.new
+    @character = current_user.characters.new
   end
 
   def import_create
-    @character = Character.new
+    @character = current_user.characters.new
     json_text = import_json_text
 
     begin
@@ -36,7 +43,7 @@ class CharactersController < ApplicationController
       return render :import, status: :unprocessable_entity
     end
 
-    attributes = payload.slice("name", "description", "aspects", "skills", "stunts", "extras")
+    attributes = payload.slice("name", "description", "aspects", "skills", "stunts", "extras", "consequences")
     @character.assign_attributes(attributes)
 
     if @character.save
@@ -47,11 +54,9 @@ class CharactersController < ApplicationController
   end
 
   def edit
-    @character = Character.find(params[:id])
   end
 
   def update
-    @character = Character.find(params[:id])
     attributes = character_params.to_h
 
     if params[:character][:physical_stress_slots]
@@ -80,11 +85,24 @@ class CharactersController < ApplicationController
   end
 
   def export
-    @character = Character.find(params[:id])
     render json: @character.permanent_export
   end
 
+  def toggle_visibility
+    @character.update(is_secret: !@character.is_secret)
+    notice = @character.is_secret ? "Personaje marcado como privado." : "Personaje marcado como público."
+    redirect_to @character, notice: notice
+  end
+
   private
+
+  def set_show_character
+    @character = current_user.characters.find_by(id: params[:id]) || Character.publicly_visible.find(params[:id])
+  end
+
+  def set_character
+    @character = current_user.characters.find(params[:id])
+  end
 
   def import_json_text
     if params.dig(:character_import, :json).present?
@@ -104,7 +122,8 @@ class CharactersController < ApplicationController
     aspects: [:title, :name, :description],
     stunts: [:title, :skill, :description],
     extras: [],
-    skills: { "4" => [], "3" => [], "2" => [], "1" => [] },
+    consequences: [],
+    skills: { "5" => [], "4" => [], "3" => [], "2" => [], "1" => [], "-1" => [] },
     physical_stress_slots: [],
     mental_stress_slots: []
   )

@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  devise_for :users, skip: [:passwords]
   get "characters/index"
   get "characters/show"
   get "characters/new"
@@ -16,10 +17,12 @@ Rails.application.routes.draw do
     collection do
       get :import
       post :import_create
+      get :public
     end
 
     member do
       get :export
+      patch :toggle_visibility
     end
   end
 

@@ -1,0 +1,39 @@
+<div class="box-border bg-white flex items-center justify-center px-4 py-6" style="min-height: calc(100vh - 6.5rem);">
+  <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+    <div class="px-8 py-10 bg-gradient-to-r from-indigo-600 to-sky-500 text-white">
+      <h1 class="text-3xl font-extrabold mb-2">Iniciar sesión</h1>
+      <p class="text-sm opacity-80">Accede con tu usuario y contraseña</p>
+    </div>
+
+    <div class="p-8 space-y-6">
+      <%= form_for(resource, as: resource_name, url: session_path(resource_name)) do |f| %>
+        <div class="space-y-5">
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2">Usuario</label>
+            <%= f.text_field :username, autofocus: true, autocomplete: "username", class: "w-full rounded-2xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-500" %>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label>
+            <%= f.password_field :password, autocomplete: "current-password", class: "w-full rounded-2xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-sky-500" %>
+          </div>
+
+          <div class="flex items-center justify-between text-sm text-slate-500">
+            <div class="flex items-center gap-2">
+              <%= f.check_box :remember_me, class: "h-4 w-4 text-sky-600 border-slate-300 rounded" %>
+              <span>Recordarme</span>
+            </div>
+          </div>
+
+          <div>
+            <%= f.submit "Entrar", class: "w-full rounded-2xl bg-sky-600 text-white py-3 font-semibold hover:bg-sky-700 transition" %>
+          </div>
+        </div>
+      <% end %>
+
+      <div class="text-center text-sm text-slate-500">
+        ¿No tienes cuenta? <%= link_to "Regístrate", new_user_registration_path, class: "font-semibold text-sky-600 hover:text-sky-700" %>
+      </div>
+    </div>
+  </div>
+</div>

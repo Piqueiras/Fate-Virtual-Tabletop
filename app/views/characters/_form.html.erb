@@ -150,7 +150,7 @@
             <div>
               <p class="text-xs uppercase tracking-widest text-slate-500 font-bold"><%= level[:label] %></p>
             </div>
-            <span class="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-2 py-1 text-xs font-semibold">+<%= level[:key] %></span>
+            <span class="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-2 py-1 text-xs font-semibold"><%= level[:display] %></span>
           </div>
           <div data-skill-pyramid-target="level" data-level="<%= level[:key] %>" data-action="dragover->skill-pyramid#allowDrop dragenter->skill-pyramid#allowDrop dragleave->skill-pyramid#leaveDrop drop->skill-pyramid#drop" class="min-h-[120px] rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-3 flex flex-wrap gap-2">
             <% Array(assigned[level[:key]]).each do |skill| %>
