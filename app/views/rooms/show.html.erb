@@ -1,4 +1,4 @@
-<div class="h-screen overflow-hidden grid grid-cols-1 lg:grid-cols-[20%_1fr_20%] bg-slate-100" data-controller="room-board" data-room-board-room-id-value="<%= @room.id %>">
+<div class="min-h-screen grid grid-cols-1 lg:grid-cols-[20%_1fr_20%] bg-slate-100" data-controller="room-board" data-room-board-room-id-value="<%= @room.id %>">
   <aside class="border-r border-slate-200 bg-white p-6 overflow-y-auto">
     <div class="mb-6">
       <h1 class="text-xl font-black text-slate-900">Roster</h1>
@@ -21,7 +21,7 @@
     </div>
   </aside>
 
-  <main class="relative p-6 overflow-hidden flex flex-col min-h-[calc(100vh-5rem)]">
+  <main class="relative p-6 flex flex-col min-h-[calc(100vh-5rem)]">
     <div class="rounded-3xl bg-white p-4 shadow-sm border border-slate-200 mb-6">
       <div class="flex items-center justify-between gap-4">
         <div>
@@ -33,24 +33,28 @@
     </div>
 
     <div class="space-y-6">
-      <div class="relative min-h-[420px] overflow-hidden rounded-3xl border border-slate-200 bg-white" data-action="dragover->room-board#allowDrop dragenter->room-board#allowDrop dragleave->room-board#leaveDrop drop->room-board#drop" data-room-board-target="board">
-        <div class="relative h-full touch-action-none min-h-[420px]">
-          <% if @room.background_image.attached? %>
-            <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('<%= url_for(@room.background_image) %>');"></div>
-          <% else %>
-            <div class="absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-white"></div>
-          <% end %>
-          <div class="absolute inset-0 bg-slate-900/10 pointer-events-none"></div>
+        <div class="relative w-full min-h-[420px] overflow-hidden rounded-3xl border border-slate-200 bg-white" data-action="dragover->room-board#allowDrop dragenter->room-board#allowDrop dragleave->room-board#leaveDrop drop->room-board#drop" data-room-board-target="board">
+        
+        <img data-room-board-target="spacer" src="<%= @room.background_image.attached? ? url_for(@room.background_image) : '' %>" class="w-full h-auto opacity-0 pointer-events-none select-none <%= @room.background_image.attached? ? 'block' : 'hidden' %>" />
 
-          <div class="relative h-full">
-            <% @room_characters.where(is_active: true).each do |room_character| %>
-              <div data-room-board-target="token" data-room-board-room-character-id-value="<%= room_character.id %>" data-action="pointerdown->room-board#startDrag" class="absolute rounded-xl border border-indigo-500 shadow-lg cursor-grab touch-none overflow-hidden bg-slate-100" style="left: <%= room_character.pos_x %>px; top: <%= room_character.pos_y %>px; width: 120px; height: 120px;">
-                <% if room_character.character.avatar.attached? %>
-                  <%= image_tag room_character.character.avatar, class: "h-full w-full object-cover", alt: "" %>
-                <% end %>
-              </div>
-            <% end %>
-          </div>
+        <div class="absolute right-4 top-4 z-30">
+          <label class="group inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition hover:bg-slate-100" title="Subir fondo del tablero">
+            <span class="text-lg">🖼</span>
+            <input type="file" accept="image/*" class="sr-only" data-action="change->room-board#submitBackgroundImage" />
+          </label>
+        </div>
+
+        <div data-room-board-target="background" class="absolute inset-0 z-0 <%= @room.background_image.attached? ? 'bg-cover bg-center' : 'bg-gradient-to-br from-slate-200 via-slate-100 to-white' %>" style="<%= @room.background_image.attached? ? "background-image: url('#{url_for(@room.background_image)}');" : '' %>"></div>
+        <div class="absolute inset-0 z-10 bg-slate-900/10 pointer-events-none"></div>
+
+        <div class="absolute inset-0 z-20 touch-none">
+          <% @room_characters.where(is_active: true).each do |room_character| %>
+            <div data-room-board-target="token" data-room-board-room-character-id-value="<%= room_character.id %>" data-action="pointerdown->room-board#startDrag" class="absolute rounded-full border border-indigo-500 shadow-lg cursor-grab touch-none overflow-hidden bg-slate-100" style="left: <%= room_character.pos_x %>px; top: <%= room_character.pos_y %>px; width: 120px; height: 120px;">
+              <% if room_character.character.avatar.attached? %>
+                <%= image_tag room_character.character.avatar, class: "h-full w-full rounded-full object-cover", alt: "" %>
+              <% end %>
+            </div>
+          <% end %>
         </div>
       </div>
 
@@ -64,36 +68,126 @@
         </div>
         <div class="space-y-3">
           <% @room_characters.where(is_active: true).each do |room_character| %>
-            <div data-room-board-room-character-id-value="<%= room_character.id %>" data-character-id="<%= room_character.character.id %>" class="relative rounded-3xl border border-slate-200 bg-white p-4">
+            <% aspects = Array(room_character.character.aspects || []) %>
+            <% skills_hash = room_character.character.skills || {} %>
+            <% consequences = Array(room_character.character.consequences || []) %>
+
+            <details data-room-board-room-character-id-value="<%= room_character.id %>" data-character-id="<%= room_character.character.id %>" class="relative rounded-3xl border border-slate-200 bg-white">
+              <summary class="group grid cursor-pointer items-center grid-cols-[30%_minmax(0,1fr)_auto] gap-3 p-4 list-none">
+                <p class="character-name min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-slate-900"><%= room_character.character.name %></p>
+                <div class="flex items-center gap-3 text-xs text-slate-500 min-w-0">
+                  <span class="inline-flex h-8 min-w-[2rem] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-2 text-sm font-semibold text-slate-900"><%= room_character.character.fate_points || 0 %></span>
+                  <div class="inline-flex items-center gap-1">
+                    <% room_character.character.physical_stress_capacity.times do |index| %>
+                      <% filled = room_character.character.physical_stress_slot?(index) %>
+                      <span class="h-7 w-7 rounded-full border-2 <%= filled ? 'border-red-600 bg-red-600' : 'border-red-600/70 bg-white' %>"></span>
+                    <% end %>
+                  </div>
+                  <div class="inline-flex items-center gap-1">
+                    <% room_character.character.mental_stress_capacity.times do |index| %>
+                      <% filled = room_character.character.mental_stress_slot?(index) %>
+                      <span class="h-7 w-7 rounded-full border-2 <%= filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white' %>"></span>
+                    <% end %>
+                  </div>
+                </div>
+                <span class="text-xs uppercase tracking-widest text-slate-400 group-open:text-slate-500">Más</span>
+              </summary>
+
               <button type="button" data-action="click->room-board#removeRoomCharacter" class="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200">
                 ×
               </button>
-                <div class="space-y-3">
-                  <p class="character-name font-semibold text-slate-900"><%= room_character.character.name %></p>
-                  <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                    <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">
-                      <span class="uppercase tracking-widest">Destino</span>
-                      <button type="button" data-action="click->room-board#changeFatePoints" data-fate-delta="-1" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:bg-slate-100">-</button>
+
+              <div class="border-t border-slate-200 px-4 pb-4 pt-4">
+                <div class="grid gap-4 lg:grid-cols-2">
+                  <div class="space-y-3">
+                    <h4 class="text-xs uppercase tracking-widest text-slate-500">Aspectos</h4>
+                    <% if aspects.any? %>
+                      <div class="grid gap-2">
+                        <% aspects.each do |aspect| %>
+                          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                            <p class="text-[10px] uppercase tracking-widest text-slate-500"><%= aspect["title"].presence || "Aspecto" %></p>
+                            <p class="font-semibold text-slate-900"><%= aspect["name"].presence || "Sin nombre" %></p>
+                            <% if aspect["description"].present? %>
+                              <p class="mt-2 text-sm text-slate-600"><%= aspect["description"] %></p>
+                            <% end %>
+                          </div>
+                        <% end %>
+                      </div>
+                    <% else %>
+                      <p class="text-sm text-slate-500">Sin aspectos definidos.</p>
+                    <% end %>
+                  </div>
+
+                  <div class="space-y-3">
+                    <h4 class="text-xs uppercase tracking-widest text-slate-500">Pirámide de skills</h4>
+                    <% Character::SKILLS_LEVELS.reverse.each do |level| %>
+                      <% skills = Array(skills_hash[level[:key]]).reject(&:blank?) %>
+                      <% next if skills.empty? %>
+                      <div class="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                        <span class="font-semibold text-slate-900"><%= level[:display] %></span>
+                        <span class="text-slate-500">•</span>
+                        <span class="flex flex-wrap gap-2">
+                          <% skills.each do |skill| %>
+                            <span class="rounded-full bg-white px-2 py-1 text-[11px] text-slate-700"><%= skill %></span>
+                          <% end %>
+                        </span>
+                      </div>
+                    <% end %>
+                    <% if Character::SKILLS_LEVELS.all? { |level| Array(skills_hash[level[:key]]).reject(&:blank?).empty? } %>
+                      <p class="text-sm text-slate-500">Sin skills asignadas.</p>
+                    <% end %>
+                  </div>
+                </div>
+
+                <div class="mt-4 space-y-3">
+                  <h4 class="text-xs uppercase tracking-widest text-slate-500">Consecuencias</h4>
+                  <% if consequences.any? %>
+                    <div class="grid gap-2 sm:grid-cols-2">
+                      <% consequences.each do |cons| %>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"><%= cons.presence || "—" %></div>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <p class="text-sm text-slate-500">Sin consecuencias definidas.</p>
+                  <% end %>
+                </div>
+
+                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs uppercase tracking-widest text-slate-500">Destino</p>
+                    <div class="mt-2 flex items-center gap-2">
+                      <button type="button" data-action="click->room-board#changeFatePoints" data-fate-delta="-1" class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:bg-slate-100">-</button>
                       <span data-room-board-target="fatePoints" class="min-w-[2rem] text-center font-semibold text-slate-900"><%= room_character.character.fate_points || 0 %></span>
-                      <button type="button" data-action="click->room-board#changeFatePoints" data-fate-delta="1" class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:bg-slate-100">+</button>
+                      <button type="button" data-action="click->room-board#changeFatePoints" data-fate-delta="1" class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:bg-slate-100">+</button>
                     </div>
-                    <div class="inline-flex items-center gap-2">
-                      <span class="uppercase tracking-widest">Físico</span>
-                      <% room_character.character.physical_stress_capacity.times do |index| %>
-                        <% filled = room_character.character.physical_stress_slot?(index) %>
-                        <button type="button" data-action="click->room-board#toggleStressSlot" data-stress-type="physical" data-stress-index="<%= index %>" data-filled="<%= filled %>" aria-pressed="<%= filled %>" class="h-7 w-7 rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-0 cursor-pointer <%= filled ? 'border-red-600 bg-red-600' : 'border-red-600/70 bg-white' %>"></button>
-                      <% end %>
-                    </div>
-                    <div class="inline-flex items-center gap-2">
-                      <span class="uppercase tracking-widest">Mental</span>
-                      <% room_character.character.mental_stress_capacity.times do |index| %>
-                        <% filled = room_character.character.mental_stress_slot?(index) %>
-                        <button type="button" data-action="click->room-board#toggleStressSlot" data-stress-type="mental" data-stress-index="<%= index %>" data-filled="<%= filled %>" aria-pressed="<%= filled %>" class="h-7 w-7 rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-0 cursor-pointer <%= filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white' %>"></button>
-                      <% end %>
+                  </div>
+
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs uppercase tracking-widest text-slate-500">Estrés</p>
+                    <div class="mt-2 space-y-2">
+                      <div>
+                        <p class="text-[10px] uppercase tracking-widest text-slate-500">Físico</p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                          <% room_character.character.physical_stress_capacity.times do |index| %>
+                            <% filled = room_character.character.physical_stress_slot?(index) %>
+                            <button type="button" data-action="click->room-board#toggleStressSlot" data-stress-type="physical" data-stress-index="<%= index %>" data-filled="<%= filled %>" aria-pressed="<%= filled %>" class="h-8 w-8 rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-0 cursor-pointer <%= filled ? 'border-red-600 bg-red-600' : 'border-red-600/70 bg-white' %>"></button>
+                          <% end %>
+                        </div>
+                      </div>
+                      <div>
+                        <p class="text-[10px] uppercase tracking-widest text-slate-500">Mental</p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                          <% room_character.character.mental_stress_capacity.times do |index| %>
+                            <% filled = room_character.character.mental_stress_slot?(index) %>
+                            <button type="button" data-action="click->room-board#toggleStressSlot" data-stress-type="mental" data-stress-index="<%= index %>" data-filled="<%= filled %>" aria-pressed="<%= filled %>" class="h-8 w-8 rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-0 cursor-pointer <%= filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white' %>"></button>
+                          <% end %>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-            </div>
+              </div>
+            </details>
           <% end %>
         </div>
       </div>

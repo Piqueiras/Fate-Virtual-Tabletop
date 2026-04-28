@@ -26,7 +26,7 @@ Rails.application.routes.draw do
     end
   end
 
-  resources :rooms, only: %i[index new create show] do
+  resources :rooms, only: %i[index new create show update] do
     resources :room_characters, only: %i[create update destroy]
     resources :game_logs, only: %i[create]
   end
