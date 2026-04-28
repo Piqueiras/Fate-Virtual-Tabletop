@@ -47,6 +47,26 @@ class RoomsController < ApplicationController
     end
   end
 
+  def clear_game_logs
+    # 1. Buscamos la sala a prueba de fallos
+    @room = Room.find(params[:id])
+    
+    # 2. Confirmamos que es el DM
+    if @room.dm == current_user
+      @room.game_logs.destroy_all
+      
+      # 3. Vaciamos la caja para todos los jugadores en vivo
+      Turbo::StreamsChannel.broadcast_update_to(
+        @room, 
+        target: "room_#{@room.id}_game_logs", 
+        html: ""
+      )
+    end
+    
+    # 4. Devolvemos un OK sin contenido para que el JS sepa que terminó
+    head :no_content 
+  end
+
   private
 
   def set_room

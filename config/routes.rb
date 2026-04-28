@@ -1,8 +1,5 @@
 Rails.application.routes.draw do
   devise_for :users, skip: [:passwords]
-  get "characters/index"
-  get "characters/show"
-  get "characters/new"
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
@@ -29,6 +26,7 @@ Rails.application.routes.draw do
   resources :rooms, only: %i[index new create show update] do
     resources :room_characters, only: %i[create update destroy]
     resources :game_logs, only: %i[create]
+    delete :clear_game_logs, on: :member
   end
 
   root "home#index"

@@ -37,6 +37,22 @@
         
         <img data-room-board-target="spacer" src="<%= @room.background_image.attached? ? url_for(@room.background_image) : '' %>" class="w-full h-auto opacity-0 pointer-events-none select-none <%= @room.background_image.attached? ? 'block' : 'hidden' %>" />
 
+        <div class="absolute left-4 top-4 z-30 flex items-center gap-2">
+          <div class="flex items-center bg-white/90 p-1 rounded-full border border-slate-200 shadow-sm">
+            <button type="button" data-action="click->room-board#zoomOut" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-200 transition focus:outline-none" title="Reducir tokens">
+              <span class="text-xl font-bold leading-none">−</span>
+            </button>
+            <div class="w-px h-4 bg-slate-300 mx-1"></div>
+            <button type="button" data-action="click->room-board#zoomIn" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-200 transition focus:outline-none" title="Aumentar tokens">
+              <span class="text-xl font-bold leading-none">+</span>
+            </button>
+          </div>
+
+          <button type="button" data-action="click->room-board#toggleDrawMode" data-room-board-target="drawBtn" class="flex h-10 px-4 items-center justify-center rounded-full bg-white/90 border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-100 shadow-sm transition-all focus:outline-none" title="Activar/Desactivar pintura">
+            🖌️ Dibujar
+          </button>
+        </div>
+
         <div class="absolute right-4 top-4 z-30">
           <label class="group inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition hover:bg-slate-100" title="Subir fondo del tablero">
             <span class="text-lg">🖼</span>
@@ -47,7 +63,12 @@
         <div data-room-board-target="background" class="absolute inset-0 z-0 <%= @room.background_image.attached? ? 'bg-cover bg-center' : 'bg-gradient-to-br from-slate-200 via-slate-100 to-white' %>" style="<%= @room.background_image.attached? ? "background-image: url('#{url_for(@room.background_image)}');" : '' %>"></div>
         <div class="absolute inset-0 z-10 bg-slate-900/10 pointer-events-none"></div>
 
-        <div class="absolute inset-0 z-20 touch-none">
+        <canvas data-room-board-target="canvas" 
+                data-action="pointerdown->room-board#startDrawing pointermove->room-board#draw pointerup->room-board#stopDrawing pointerout->room-board#stopDrawing" 
+                class="absolute inset-0 z-15 touch-none pointer-events-none w-full h-full">
+        </canvas>
+
+        <div class="absolute inset-0 z-20 touch-none" data-room-board-target="tokenLayer">
           <% @room_characters.where(is_active: true).each do |room_character| %>
             <div data-room-board-target="token" data-room-board-room-character-id-value="<%= room_character.id %>" data-action="pointerdown->room-board#startDrag" class="absolute rounded-full border border-indigo-500 shadow-lg cursor-grab touch-none overflow-hidden bg-slate-100" style="left: <%= room_character.pos_x %>px; top: <%= room_character.pos_y %>px; width: 120px; height: 120px;">
               <% if room_character.character.avatar.attached? %>
@@ -66,30 +87,35 @@
           </div>
           <span class="rounded-full bg-white px-3 py-1 text-xs uppercase tracking-widest text-slate-500 border border-slate-200">Drop zone</span>
         </div>
+        
         <div class="space-y-3">
           <% @room_characters.where(is_active: true).each do |room_character| %>
             <% aspects = Array(room_character.character.aspects || []) %>
             <% skills_hash = room_character.character.skills || {} %>
-            <% consequences = Array(room_character.character.consequences || []) %>
 
             <details data-room-board-room-character-id-value="<%= room_character.id %>" data-character-id="<%= room_character.character.id %>" class="relative rounded-3xl border border-slate-200 bg-white">
+              
               <summary class="group grid cursor-pointer items-center grid-cols-[30%_minmax(0,1fr)_auto] gap-3 p-4 list-none">
                 <p class="character-name min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-slate-900"><%= room_character.character.name %></p>
-                <div class="flex items-center gap-3 text-xs text-slate-500 min-w-0">
+                
+                <div class="flex items-center gap-5 text-xs text-slate-500 min-w-0">
                   <span class="inline-flex h-8 min-w-[2rem] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-2 text-sm font-semibold text-slate-900"><%= room_character.character.fate_points || 0 %></span>
-                  <div class="inline-flex items-center gap-1">
+                  
+                  <div class="flex items-center gap-1 w-36">
                     <% room_character.character.physical_stress_capacity.times do |index| %>
                       <% filled = room_character.character.physical_stress_slot?(index) %>
-                      <span class="h-7 w-7 rounded-full border-2 <%= filled ? 'border-red-600 bg-red-600' : 'border-red-600/70 bg-white' %>"></span>
+                      <span class="h-7 w-7 shrink-0 rounded-full border-2 <%= filled ? 'border-red-600 bg-red-600' : 'border-red-600/70 bg-white' %>"></span>
                     <% end %>
                   </div>
-                  <div class="inline-flex items-center gap-1">
+                  
+                  <div class="flex items-center gap-1">
                     <% room_character.character.mental_stress_capacity.times do |index| %>
                       <% filled = room_character.character.mental_stress_slot?(index) %>
-                      <span class="h-7 w-7 rounded-full border-2 <%= filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white' %>"></span>
+                      <span class="h-7 w-7 shrink-0 rounded-full border-2 <%= filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white' %>"></span>
                     <% end %>
                   </div>
                 </div>
+                
                 <span class="text-xs uppercase tracking-widest text-slate-400 group-open:text-slate-500">Más</span>
               </summary>
 
@@ -99,6 +125,7 @@
 
               <div class="border-t border-slate-200 px-4 pb-4 pt-4">
                 <div class="grid gap-4 lg:grid-cols-2">
+                  
                   <div class="space-y-3">
                     <h4 class="text-xs uppercase tracking-widest text-slate-500">Aspectos</h4>
                     <% if aspects.any? %>
@@ -139,18 +166,19 @@
                   </div>
                 </div>
 
-                <div class="mt-4 space-y-3">
-                  <h4 class="text-xs uppercase tracking-widest text-slate-500">Consecuencias</h4>
-                  <% if consequences.any? %>
+                <% consecuencias_reales = Array(room_character.character.consequences).reject(&:blank?) %>
+                <% if consecuencias_reales.any? %>
+                  <div class="mt-4 space-y-3">
+                    <h4 class="text-xs uppercase tracking-widest text-slate-500">Consecuencias</h4>
                     <div class="grid gap-2 sm:grid-cols-2">
-                      <% consequences.each do |cons| %>
-                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"><%= cons.presence || "—" %></div>
+                      <% consecuencias_reales.each do |cons| %>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                          <%= cons %>
+                        </div>
                       <% end %>
                     </div>
-                  <% else %>
-                    <p class="text-sm text-slate-500">Sin consecuencias definidas.</p>
-                  <% end %>
-                </div>
+                  </div>
+                <% end %>
 
                 <div class="mt-4 grid gap-3 sm:grid-cols-2">
                   <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -186,6 +214,7 @@
                     </div>
                   </div>
                 </div>
+
               </div>
             </details>
           <% end %>
@@ -194,18 +223,34 @@
     </div>
   </main>
 
-  <aside class="border-l border-slate-200 bg-white p-6 overflow-y-auto">
-    <div class="mb-6">
-      <h2 class="text-xl font-black text-slate-900">Game Log</h2>
-      <p class="text-sm text-slate-500">Actualizaciones de la sala en tiempo real.</p>
+  <aside class="border-l border-slate-200 bg-white p-6 flex flex-col h-[calc(100vh-6rem)] sticky top-6">
+    <div class="mb-6 shrink-0">
+      <h2 class="text-xl font-black text-slate-900">Registro</h2>
     </div>
 
-    <div class="space-y-3 max-h-[calc(100vh-160px)] overflow-y-auto" data-room-board-target="gameLogList">
+    <div class="mb-6 shrink-0 flex gap-2">
+      <button type="button" 
+          data-action="click->room-board#rollDice" 
+          data-user-name="<%= current_user.username %>"
+          class="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700 shadow-md transition-all active:scale-95">
+          <span class="text-lg">🎲</span> Lanzar
+      </button>
+
+      <% if @room.dm == current_user %>
+        <button type="button" 
+            data-action="click->room-board#clearLog" 
+            class="flex items-center justify-center rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-100 shadow-sm transition-all active:scale-95"
+            title="Limpiar registro">
+            <span class="text-lg">🗑️</span>
+        </button>
+      <% end %>
+    </div>
+
+    <%= turbo_stream_from @room %>
+
+    <div id="room_<%= @room.id %>_game_logs" class="space-y-3 overflow-y-auto flex-1 min-h-0 pb-4 pr-2" data-room-board-target="gameLogList">
       <% @room.game_logs.order(created_at: :desc).each do |log| %>
-        <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-          <p><%= log.message %></p>
-          <p class="mt-2 text-xs text-slate-500"><%= l(log.created_at, format: :short) %></p>
-        </div>
+        <%= render partial: "game_logs/game_log", locals: { log: log } %>
       <% end %>
     </div>
   </aside>

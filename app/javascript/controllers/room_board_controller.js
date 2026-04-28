@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["board", "token", "activeList", "gameLogList", "background", "spacer"]
+  static targets = ["board", "token", "activeList", "gameLogList", "background", "spacer", "canvas", "drawBtn", "tokenLayer"]
   static values = { roomId: Number }
 
   connect() {
@@ -11,10 +11,26 @@ export default class extends Controller {
     this.moveBound = null
     this.endBound = null
     this.draggingRoster = null
+    this.isDrawingMode = false
+    this.isPainting = false
+    this.ctx = null
 
-    // El observador ahora SÓLO sirve para que, si redimensionas la pantalla, los tokens no se salgan.
-    this.resizeObserver = new ResizeObserver(() => this.clampTokenPositions())
+    // 1. Candado de seguridad para evitar cálculos prematuros
+    this.boardReady = false
+
+    this.tokenSizes = [45, 75, 120, 180]
+    const maxIndex = this.tokenSizes.length - 1
+    const savedZoom = localStorage.getItem(`vtt_zoom_${this.roomIdValue}`)
+    this.currentZoomIndex = savedZoom !== null ? parseInt(savedZoom, 10) : maxIndex
+
+    this.resizeObserver = new ResizeObserver(() => {
+      // Al redimensionar la ventana, clampeamos visualmente pero NO guardamos en BD
+      if (this.boardReady) this.clampTokenPositions(false)
+    })
     this.resizeObserver.observe(this.boardTarget)
+
+    // 2. Iniciamos la espera
+    this.waitForBoardToLoad()
   }
 
   disconnect() {
@@ -22,7 +38,152 @@ export default class extends Controller {
   }
 
   // ==========================================
-  // 1. SUBIDA DE FONDO (MAGIA DEL SPACER)
+  // CARGA SEGURA Y ZOOM
+  // ==========================================
+
+  waitForBoardToLoad() {
+    if (!this.hasSpacerTarget) {
+      this.unlockBoard()
+      return
+    }
+
+    const spacer = this.spacerTarget
+    // Si no hay imagen, o la imagen ya cargó instantáneamente de la caché
+    if (!spacer.getAttribute('src') || spacer.complete) {
+      this.unlockBoard()
+    } else {
+      // Si la imagen está tardando en descargar, nos suscribimos al evento "load"
+      spacer.addEventListener('load', () => this.unlockBoard(), { once: true })
+      spacer.addEventListener('error', () => this.unlockBoard(), { once: true }) // Fallback por si falla el internet
+    }
+  }
+
+  unlockBoard() {
+    // Damos 1 frame de respiro al navegador para pintar, y quitamos el candado
+    requestAnimationFrame(() => {
+      this.boardReady = true
+      this.applyZoom()
+    })
+  }
+
+  zoomIn(event) {
+    if (event) event.preventDefault()
+    if (this.currentZoomIndex < this.tokenSizes.length - 1) {
+      this.currentZoomIndex++
+      this.applyZoom()
+    }
+  }
+
+  zoomOut(event) {
+    if (event) event.preventDefault()
+    if (this.currentZoomIndex > 0) {
+      this.currentZoomIndex--
+      this.applyZoom()
+    }
+  }
+
+  applyZoom() {
+    const newSize = this.tokenSizes[this.currentZoomIndex]
+    localStorage.setItem(`vtt_zoom_${this.roomIdValue}`, this.currentZoomIndex)
+
+    this.tokenTargets.forEach(token => {
+      token.style.width = `${newSize}px`
+      token.style.height = `${newSize}px`
+    })
+
+    // Al hacer zoom explícito con los botones, SÍ guardamos si algún token choca con el borde
+    if (this.boardReady) {
+      this.clampTokenPositions(true)
+    }
+  }
+
+  // ==========================================
+  // DIBUJO EN CANVAS (PAINT)
+  // ==========================================
+
+  setupCanvas() {
+    if (!this.hasCanvasTarget) return
+    const canvas = this.canvasTarget
+    
+    // El canvas necesita que sus atributos internos width/height coincidan 
+    // con sus píxeles reales en pantalla para no verse borroso ni descolocado
+    canvas.width = canvas.offsetWidth
+    canvas.height = canvas.offsetHeight
+    
+    // Configuración del "Pincel"
+    this.ctx = canvas.getContext('2d')
+    this.ctx.lineWidth = 5           // Grosor de la línea
+    this.ctx.lineCap = 'round'       // Puntas redondeadas
+    this.ctx.strokeStyle = '#ef4444' // Color rojo de Tailwind (puedes cambiarlo)
+  }
+
+  toggleDrawMode(event) {
+    if (event) event.preventDefault()
+    this.isDrawingMode = !this.isDrawingMode
+
+    const btn = this.drawBtnTarget
+    const canvas = this.canvasTarget
+
+    // Inicializamos las proporciones del canvas la primera vez
+    if (this.isDrawingMode && !this.ctx) {
+      this.setupCanvas()
+    }
+
+    if (this.isDrawingMode) {
+      // Activar Modo Dibujo: Iluminamos el botón, activamos canvas y bloqueamos tokens
+      btn.classList.add('bg-indigo-100', 'border-indigo-300', 'text-indigo-700')
+      btn.classList.remove('bg-white/90', 'text-slate-700')
+      canvas.classList.remove('pointer-events-none')
+      
+      // Hacemos que los tokens ignoren el ratón para poder pintar sobre ellos o cerca de ellos
+      if (this.hasTokenLayerTarget) this.tokenLayerTarget.classList.add('pointer-events-none')
+    } else {
+      // Desactivar Modo Dibujo
+      btn.classList.remove('bg-indigo-100', 'border-indigo-300', 'text-indigo-700')
+      btn.classList.add('bg-white/90', 'text-slate-700')
+      canvas.classList.add('pointer-events-none')
+      
+      if (this.hasTokenLayerTarget) this.tokenLayerTarget.classList.remove('pointer-events-none')
+    }
+  }
+
+  startDrawing(event) {
+    if (!this.isDrawingMode) return
+    event.preventDefault()
+    
+    this.isPainting = true
+    this.draw(event) // Para pintar un simple punto si solo hacen clic
+  }
+
+  draw(event) {
+    if (!this.isPainting || !this.isDrawingMode) return
+    event.preventDefault()
+
+    const canvas = this.canvasTarget
+    const rect = canvas.getBoundingClientRect()
+    
+    // Calculamos dónde está el puntero relativo al canvas
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+
+    this.ctx.lineTo(x, y)
+    this.ctx.stroke()
+    
+    // Empezamos un nuevo path para que la línea fluya
+    this.ctx.beginPath()
+    this.ctx.moveTo(x, y)
+  }
+
+  stopDrawing(event) {
+    if (!this.isPainting) return
+    event.preventDefault()
+    
+    this.isPainting = false
+    this.ctx.beginPath() // Reseteamos el trazo
+  }
+
+  // ==========================================
+  // SUBIDA DE FONDO
   // ==========================================
 
   submitBackgroundImage(event) {
@@ -36,14 +197,12 @@ export default class extends Controller {
   }
 
   previewBackgroundImage(url) {
-    // 1. Damos la URL a la imagen invisible para que el tablero crezca al instante
     if (this.hasSpacerTarget) {
       this.spacerTarget.src = url
       this.spacerTarget.classList.remove('hidden')
       this.spacerTarget.classList.add('block')
     }
     
-    // 2. Damos la URL al fondo real que el usuario ve
     if (this.hasBackgroundTarget) {
       this.backgroundTarget.classList.remove('bg-gradient-to-br', 'from-slate-200', 'via-slate-100', 'to-white')
       this.backgroundTarget.classList.add('bg-cover', 'bg-center')
@@ -57,7 +216,6 @@ export default class extends Controller {
     const formData = new FormData()
     
     formData.append('room[background_image]', file)
-    // Ya no mandamos Width y Height a la BD, no hacen falta. El Spacer lo hace todo.
 
     fetch(url, {
       method: 'PATCH',
@@ -73,7 +231,7 @@ export default class extends Controller {
   }
 
   // ==========================================
-  // 2. MOVER TOKENS POR EL TABLERO (POINTER)
+  // MOVER TOKENS POR EL TABLERO (POINTER)
   // ==========================================
 
   startDrag(event) {
@@ -87,7 +245,7 @@ export default class extends Controller {
     const rect = token.getBoundingClientRect()
     this.offsetX = event.clientX - rect.left
     this.offsetY = event.clientY - rect.top
-    token.classList.add("ring-2", "ring-indigo-500", "shadow-2xl")
+    token.classList.add("ring-2", "ring-indigo-500", "shadow-2xl", "z-50")
 
     this.moveBound = this.move.bind(this)
     this.endBound = this.endDrag.bind(this)
@@ -118,10 +276,12 @@ export default class extends Controller {
     event.preventDefault()
 
     const token = this.dragging
-    token.classList.remove("ring-2", "ring-indigo-500", "shadow-2xl")
+    token.classList.remove("ring-2", "ring-indigo-500", "shadow-2xl", "z-50")
 
     const left = Number(token.dataset.roomBoardLastX || token.style.left.replace("px", ""))
     const top = Number(token.dataset.roomBoardLastY || token.style.top.replace("px", ""))
+    
+    // Al soltar el click, forzamos guardar en BD
     this.savePosition(token, left, top)
 
     this.dragging = null
@@ -132,8 +292,9 @@ export default class extends Controller {
     this.endBound = null
   }
 
-  clampTokenPositions() {
-    if (!this.hasBoardTarget) return
+  // Ahora recibe un parámetro para decidir si bombardea la BD o no
+  clampTokenPositions(saveToDb = true) {
+    if (!this.hasBoardTarget || !this.boardReady) return
 
     const boardRect = this.boardTarget.getBoundingClientRect()
     const tokens = this.hasTokenTarget ? this.tokenTargets : Array.from(this.boardTarget.querySelectorAll('[data-room-board-target="token"]'))
@@ -153,7 +314,11 @@ export default class extends Controller {
       if (changed) {
         token.style.left = `${left}px`
         token.style.top = `${top}px`
-        this.savePosition(token, left, top)
+        
+        // Solo guardamos permanentemente si no viene de redimensionar la ventana
+        if (saveToDb) {
+          this.savePosition(token, left, top)
+        }
       }
     })
   }
@@ -171,10 +336,6 @@ export default class extends Controller {
       body: JSON.stringify({ room_character: { pos_x: Math.round(x), pos_y: Math.round(y) } }),
     }).catch((error) => console.error("Error guardando posición", error))
   }
-
-  // ==========================================
-  // 3. DRAG & DROP ROSTER (HTML5)
-  // ==========================================
 
   startRosterDrag(event) {
     const card = event.currentTarget
@@ -218,9 +379,12 @@ export default class extends Controller {
     const characterId = event.dataTransfer.getData("text/plain")
     if (!characterId) return
 
+    const size = this.tokenSizes[this.currentZoomIndex]
+    const half = size / 2
+
     const boardRect = this.boardTarget.getBoundingClientRect()
-    const left = Math.max(0, Math.min(event.clientX - boardRect.left - 60, boardRect.width - 120))
-    const top = Math.max(0, Math.min(event.clientY - boardRect.top - 60, boardRect.height - 120))
+    const left = Math.max(0, Math.min(event.clientX - boardRect.left - half, boardRect.width - size))
+    const top = Math.max(0, Math.min(event.clientY - boardRect.top - half, boardRect.height - size))
 
     this.createRoomCharacter(characterId, Math.round(left), Math.round(top))
   }
@@ -232,9 +396,12 @@ export default class extends Controller {
     const characterId = event.dataTransfer.getData("text/plain")
     if (!characterId) return
 
+    const size = this.tokenSizes[this.currentZoomIndex]
+    const half = size / 2
+
     const boardRect = this.boardTarget.getBoundingClientRect()
-    const left = Math.max(0, Math.min(boardRect.width / 2 - 60, boardRect.width - 120))
-    const top = Math.max(0, Math.min(boardRect.height / 2 - 60, boardRect.height - 120))
+    const left = Math.max(0, Math.min(boardRect.width / 2 - half, boardRect.width - size))
+    const top = Math.max(0, Math.min(boardRect.height / 2 - half, boardRect.height - size))
 
     this.createRoomCharacter(characterId, Math.round(left), Math.round(top))
   }
@@ -353,6 +520,25 @@ export default class extends Controller {
   // 5. GAME LOG
   // ==========================================
 
+    rollDice(event) {
+        if (event) event.preventDefault()
+
+        // 1. Capturamos el nombre inyectado por Rails en el botón
+        const userName = event.currentTarget.dataset.userName || "Un jugador"
+
+        const values = [-1, 0, 1]
+        const roll = Array.from({ length: 4 }, () => values[Math.floor(Math.random() * values.length)])
+        const sum = roll.reduce((a, b) => a + b, 0)
+
+        const symbols = roll.map(v => v === 1 ? "+" : (v === -1 ? "-" : "0")).join(" ")
+        const resultText = sum > 0 ? `+${sum}` : sum.toString()
+
+        // 2. Lo añadimos al mensaje
+        const message = `🎲 ${userName} : [ ${symbols} ] = ${resultText}`
+
+        this.postGameLog(message)
+    }
+
   postGameLog(message) {
     const url = `/rooms/${this.roomIdValue}/game_logs`
     const tokenMeta = document.querySelector('meta[name="csrf-token"]')
@@ -362,15 +548,33 @@ export default class extends Controller {
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': tokenMeta?.content },
       body: JSON.stringify({ game_log: { message } }),
     })
-      .then(r => r.ok ? r.json() : Promise.reject(r))
-      .then(data => this.prependGameLog(data))
   }
 
-  prependGameLog(log) {
-    if (!this.hasGameLogListTarget) return
-    const item = document.createElement('div')
-    item.className = 'rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 shadow-sm transition-all duration-300'
-    item.innerHTML = `<p>${log.message}</p><p class="mt-2 text-xs text-slate-500">${log.created_at ? new Date(log.created_at).toLocaleString() : 'Ahora'}</p>`
-    this.gameLogListTarget.prepend(item)
+  clearLog(event) {
+    event.preventDefault()
+    
+    if (!confirm("¿Seguro que quieres borrar todo el historial? Esta acción no se puede deshacer.")) return
+
+    const url = `/rooms/${this.roomIdValue}/clear_game_logs`
+    const tokenMeta = document.querySelector('meta[name="csrf-token"]')
+
+    fetch(url, {
+      method: 'DELETE',
+      headers: { 'Accept': 'application/json', 'X-CSRF-Token': tokenMeta?.content },
+      credentials: 'same-origin',
+    })
+    .then(response => {
+      if (response.ok) {
+        // 1. Si el servidor dice "OK", borramos la caja visualmente al instante
+        if (this.hasGameLogListTarget) {
+          this.gameLogListTarget.innerHTML = ""
+        }
+      } else {
+        // 2. Si el servidor da un error 404 o 500, lo mostramos en la consola
+        console.error("Error del servidor al intentar borrar:", response.status)
+        alert("Hubo un problema al borrar el log. Mira la consola (F12).")
+      }
+    })
+    .catch((error) => console.error("Error de red limpiando el log", error))
   }
 }
