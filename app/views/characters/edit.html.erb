@@ -4,6 +4,6 @@
   <%= render "form", character: @character %>
 
   <div class="mt-4 text-center">
-    <%= link_to "Cancelar", @character, class: "text-gray-500 hover:underline" %>
+    <%= link_to "Cancelar", request.referer || @character, class: "text-gray-500 hover:underline" %>
   </div>
 </div>

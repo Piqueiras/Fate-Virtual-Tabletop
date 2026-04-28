@@ -1,6 +1,8 @@
 class Character < ApplicationRecord
   belongs_to :user, optional: true
   has_one_attached :avatar
+  has_many :room_characters, dependent: :destroy
+  has_many :rooms, through: :room_characters
 
   scope :publicly_visible, -> { where(is_secret: [false, nil]) }
   scope :owned_by, ->(user) { where(user: user) }

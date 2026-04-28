@@ -26,5 +26,10 @@ Rails.application.routes.draw do
     end
   end
 
-  root "characters#index" # Esto hace que al entrar a la app, veas la lista
+  resources :rooms, only: %i[index new create show] do
+    resources :room_characters, only: %i[create update destroy]
+    resources :game_logs, only: %i[create]
+  end
+
+  root "home#index"
 end

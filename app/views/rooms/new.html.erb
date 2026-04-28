@@ -1,0 +1,26 @@
+<div class="max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+  <h1 class="text-3xl font-black text-slate-900 mb-4">Crear nueva sala</h1>
+
+  <%= form_with model: @room, local: true do |f| %>
+    <div class="grid gap-6">
+      <div>
+        <%= f.label :name, "Nombre de sala", class: "block text-sm font-semibold text-slate-700 mb-2" %>
+        <%= f.text_field :name, class: "w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none" %>
+      </div>
+
+      <div>
+        <%= f.label :password, "Contraseña (opcional)", class: "block text-sm font-semibold text-slate-700 mb-2" %>
+        <%= f.password_field :password, class: "w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none" %>
+      </div>
+
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-sm text-slate-500">Si la contraseña queda en blanco, la sala será pública.</p>
+        <%= f.submit "Crear sala", class: "rounded-full bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition" %>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="mt-6">
+    <%= link_to "Volver a salas", rooms_path, class: "text-sm font-semibold text-indigo-600 hover:text-indigo-800" %>
+  </div>
+</div>

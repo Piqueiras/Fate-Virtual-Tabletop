@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_27_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_28_002000) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -57,6 +57,36 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_27_210000) do
     t.index ["user_id"], name: "index_characters_on_user_id"
   end
 
+  create_table "game_logs", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "message", null: false
+    t.integer "room_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["room_id"], name: "index_game_logs_on_room_id"
+  end
+
+  create_table "room_characters", force: :cascade do |t|
+    t.integer "character_id", null: false
+    t.datetime "created_at", null: false
+    t.boolean "is_active", default: false, null: false
+    t.integer "pos_x", default: 0, null: false
+    t.integer "pos_y", default: 0, null: false
+    t.integer "room_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["character_id"], name: "index_room_characters_on_character_id"
+    t.index ["room_id", "character_id"], name: "index_room_characters_on_room_id_and_character_id", unique: true
+    t.index ["room_id"], name: "index_room_characters_on_room_id"
+  end
+
+  create_table "rooms", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "dm_id", null: false
+    t.string "name", null: false
+    t.string "password_digest"
+    t.datetime "updated_at", null: false
+    t.index ["dm_id"], name: "index_rooms_on_dm_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email"
@@ -74,4 +104,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_27_210000) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "characters", "users"
+  add_foreign_key "game_logs", "rooms"
+  add_foreign_key "room_characters", "characters"
+  add_foreign_key "room_characters", "rooms"
+  add_foreign_key "rooms", "users", column: "dm_id"
 end

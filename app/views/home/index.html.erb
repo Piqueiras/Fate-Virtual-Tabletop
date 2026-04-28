@@ -1,0 +1,21 @@
+<div class="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60vh] p-4">
+  <div class="w-full rounded-3xl border border-slate-200 bg-white p-10 md:p-16 shadow-xl text-center">
+    
+    <h1 class="text-5xl md:text-6xl font-black text-slate-900 mb-6 tracking-tight">Bienvenido a Fate VTT</h1>
+
+    <div class="grid gap-8 sm:grid-cols-2">
+      <%= link_to rooms_path, class: "group block rounded-3xl border-2 border-slate-200 bg-slate-50 p-10 hover:border-indigo-400 hover:bg-indigo-50 hover:shadow-xl hover:-translate-y-2 transition-all duration-300" do %>
+        <p class="text-sm uppercase tracking-widest text-indigo-500 font-bold mb-4">Salas Activas</p>
+        <p class="text-7xl font-black text-slate-900 group-hover:text-indigo-600 transition-colors"><%= @rooms_count %></p>
+        <p class="mt-4 text-lg font-medium text-slate-600">Entrar al Tablero Virtual</p>
+      <% end %>
+
+      <%= link_to characters_path, class: "group block rounded-3xl border-2 border-slate-200 bg-slate-50 p-10 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-xl hover:-translate-y-2 transition-all duration-300" do %>
+        <p class="text-sm uppercase tracking-widest text-emerald-500 font-bold mb-4">Mis Personajes</p>
+        <p class="text-7xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors"><%= @characters_count %></p>
+        <p class="mt-4 text-lg font-medium text-slate-600">Gestionar Fichas</p>
+      <% end %>
+    </div>
+
+  </div>
+</div>
