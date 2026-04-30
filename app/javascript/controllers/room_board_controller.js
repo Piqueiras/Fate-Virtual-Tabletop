@@ -37,6 +37,15 @@ export default class extends Controller {
     if (this.resizeObserver) this.resizeObserver.disconnect()
   }
 
+  tokenTargetConnected(token) {
+    // Si aún no ha cargado el índice de zoom en el arranque, usamos el nivel 2 (120px) por defecto
+    const zoomIndex = this.currentZoomIndex !== undefined ? this.currentZoomIndex : 2
+    const newSize = this.tokenSizes ? this.tokenSizes[zoomIndex] : 120
+    
+    token.style.width = `${newSize}px`
+    token.style.height = `${newSize}px`
+  }
+
   // ==========================================
   // CARGA SEGURA Y ZOOM
   // ==========================================
@@ -245,7 +254,15 @@ export default class extends Controller {
     const rect = token.getBoundingClientRect()
     this.offsetX = event.clientX - rect.left
     this.offsetY = event.clientY - rect.top
-    token.classList.add("ring-2", "ring-indigo-500", "shadow-2xl", "z-50")
+    
+    // Elevamos la caja contenedora para que pase por encima de los demás
+    token.classList.add("z-50")
+    
+    // NUEVO: Le ponemos el anillo azul, la sombra y un efectito de "zoom" 
+    // SOLO al círculo o cuadrado interior visual
+    if (token.firstElementChild) {
+      token.firstElementChild.classList.add("ring-4", "ring-indigo-500", "shadow-2xl", "scale-105", "transition-transform")
+    }
 
     this.moveBound = this.move.bind(this)
     this.endBound = this.endDrag.bind(this)
@@ -276,14 +293,34 @@ export default class extends Controller {
     event.preventDefault()
 
     const token = this.dragging
-    token.classList.remove("ring-2", "ring-indigo-500", "shadow-2xl", "z-50")
+    token.classList.remove("z-50")
+    if (token.firstElementChild) token.firstElementChild.classList.remove("ring-4", "ring-indigo-500", "shadow-2xl", "scale-105", "transition-transform")
+
+    const isItem = !!token.dataset.itemId
+
+    // ¿Cayó un objeto encima de un personaje o inventario?
+    if (isItem) {
+      token.style.pointerEvents = "none" // Ocultamos el objeto 1 milisegundo
+      const dropTarget = document.elementFromPoint(event.clientX, event.clientY) // Miramos qué hay debajo
+      token.style.pointerEvents = "auto"
+
+      const characterContainer = dropTarget?.closest('[data-character-id]')
+      
+      if (characterContainer) {
+        const characterId = characterContainer.dataset.characterId
+        this.assignItemToCharacter(token.dataset.itemId, characterId)
+        this.cleanUpDragEvents()
+        return // Cortamos aquí para que no guarde posición en el tablero
+      }
+    }
 
     const left = Number(token.dataset.roomBoardLastX || token.style.left.replace("px", ""))
     const top = Number(token.dataset.roomBoardLastY || token.style.top.replace("px", ""))
-    
-    // Al soltar el click, forzamos guardar en BD
     this.savePosition(token, left, top)
+    this.cleanUpDragEvents()
+  }
 
+  cleanUpDragEvents() {
     this.dragging = null
     window.removeEventListener("pointermove", this.moveBound)
     window.removeEventListener("pointerup", this.endBound)
@@ -325,16 +362,27 @@ export default class extends Controller {
 
   savePosition(token, x, y) {
     const roomCharacterId = token.dataset.roomBoardRoomCharacterIdValue
-    if (!roomCharacterId) return
-
-    const url = `/rooms/${this.roomIdValue}/room_characters/${roomCharacterId}`
+    const itemId = token.dataset.itemId // Leemos el ID del objeto que pusimos en el HTML
     const tokenMeta = document.querySelector("meta[name='csrf-token']")
 
-    fetch(url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
-      body: JSON.stringify({ room_character: { pos_x: Math.round(x), pos_y: Math.round(y) } }),
-    }).catch((error) => console.error("Error guardando posición", error))
+    // 1. Si es un Personaje
+    if (roomCharacterId) {
+      const url = `/rooms/${this.roomIdValue}/room_characters/${roomCharacterId}`
+      fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+        body: JSON.stringify({ room_character: { pos_x: Math.round(x), pos_y: Math.round(y) } }),
+      }).catch((error) => console.error("Error guardando posición de personaje", error))
+    
+    // 2. Si es un Objeto
+    } else if (itemId) {
+      const url = `/rooms/${this.roomIdValue}/items/${itemId}`
+      fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+        body: JSON.stringify({ item: { pos_x: Math.round(x), pos_y: Math.round(y) } }),
+      }).catch((error) => console.error("Error guardando posición de objeto", error))
+    }
   }
 
   startRosterDrag(event) {
@@ -373,6 +421,16 @@ export default class extends Controller {
       const objectUrl = URL.createObjectURL(file)
       this.previewBackgroundImage(objectUrl)
       this.sendBackgroundImage(file)
+      return
+    }
+
+    const itemId = event.dataTransfer.getData("item_id")
+    if (itemId) {
+      const boardRect = this.boardTarget.getBoundingClientRect()
+      // Usamos un offset fijo (ej. 30px) para que caiga centrado en el ratón
+      const left = event.clientX - boardRect.left - 30 
+      const top = event.clientY - boardRect.top - 30
+      this.dropItemOnBoard(itemId, left, top)
       return
     }
 
@@ -436,11 +494,47 @@ export default class extends Controller {
       headers: { "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
       credentials: "same-origin",
     })
-      .then((response) => response.ok ? response.json() : Promise.reject(response))
-      .then(() => {
-        document.querySelectorAll(`[data-room-board-room-character-id-value="${roomCharacterId}"]`).forEach(e => e.remove())
+      .then((response) => {
+        if (response.ok) {
+          // Si el servidor dice OK, borramos todos los elementos visuales que tengan este ID
+          // (Tanto el token del tablero como la tarjeta de la lista)
+          document.querySelectorAll(`[data-room-board-room-character-id-value="${roomCharacterId}"]`).forEach(e => e.remove())
+        } else {
+          return Promise.reject(response)
+        }
       })
       .catch((error) => console.error("Error eliminando el personaje", error))
+  }
+  startItemDrag(event) {
+    const itemCard = event.currentTarget
+    const itemId = itemCard.dataset.itemId
+    itemCard.classList.add("opacity-50", "ring-2", "ring-indigo-500")
+    event.dataTransfer.effectAllowed = "move"
+    event.dataTransfer.setData("item_id", itemId) // Etiqueta especial para objetos
+  }
+
+  endItemDrag(event) {
+    event.currentTarget.classList.remove("opacity-50", "ring-2", "ring-indigo-500")
+  }
+
+  assignItemToCharacter(itemId, characterId) {
+    const url = `/rooms/${this.roomIdValue}/items/${itemId}`
+    const tokenMeta = document.querySelector("meta[name='csrf-token']")
+    fetch(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+      body: JSON.stringify({ item: { character_id: characterId, on_board: false } }),
+    }).then(() => window.location.reload()) // Recargamos para reflejar el cambio
+  }
+
+  dropItemOnBoard(itemId, x, y) {
+    const url = `/rooms/${this.roomIdValue}/items/${itemId}`
+    const tokenMeta = document.querySelector("meta[name='csrf-token']")
+    fetch(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+      body: JSON.stringify({ item: { character_id: null, on_board: true, pos_x: Math.round(x), pos_y: Math.round(y) } }),
+    }).then(() => window.location.reload())
   }
 
   // ==========================================

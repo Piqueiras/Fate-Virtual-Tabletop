@@ -1,0 +1,20 @@
+<div id="board_token_<%= room_character.id %>"
+     data-room-board-target="token" 
+     data-room-board-room-character-id-value="<%= room_character.id %>" 
+     data-character-id="<%= room_character.character.id %>" 
+     data-action="pointerdown->room-board#startDrag" 
+     class="absolute cursor-grab active:cursor-grabbing touch-none group z-20" 
+     style="left: <%= room_character.pos_x %>px; top: <%= room_character.pos_y %>px;"> 
+     <!-- (Eliminado el ancho/alto estático de arriba) -->
+  
+  <div class="w-full h-full rounded-full border-2 border-indigo-500 shadow-lg overflow-hidden bg-slate-100 pointer-events-none">
+    <% if room_character.character.avatar.attached? %>
+      <!-- Añadimos loading: "eager" para forzar la descarga -->
+      <%= image_tag room_character.character.avatar, class: "h-full w-full object-cover", alt: "", loading: "eager" %>
+    <% end %>
+  </div>
+
+  <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50">
+    <%= room_character.character.name %>
+  </div>
+</div>

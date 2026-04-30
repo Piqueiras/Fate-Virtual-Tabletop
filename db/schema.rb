@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_28_123000) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_30_131355) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -65,6 +65,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_123000) do
     t.index ["room_id"], name: "index_game_logs_on_room_id"
   end
 
+  create_table "items", force: :cascade do |t|
+    t.integer "character_id"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "name"
+    t.boolean "on_board", default: true
+    t.integer "pos_x", default: 0
+    t.integer "pos_y", default: 0
+    t.integer "room_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["character_id"], name: "index_items_on_character_id"
+    t.index ["room_id"], name: "index_items_on_room_id"
+  end
+
   create_table "room_characters", force: :cascade do |t|
     t.integer "character_id", null: false
     t.datetime "created_at", null: false
@@ -107,6 +121,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_123000) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "characters", "users"
   add_foreign_key "game_logs", "rooms"
+  add_foreign_key "items", "characters"
+  add_foreign_key "items", "rooms"
   add_foreign_key "room_characters", "characters"
   add_foreign_key "room_characters", "rooms"
   add_foreign_key "rooms", "users", column: "dm_id"

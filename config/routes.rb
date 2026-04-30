@@ -26,6 +26,7 @@ Rails.application.routes.draw do
   resources :rooms, only: %i[index new create show update] do
     resources :room_characters, only: %i[create update destroy]
     resources :game_logs, only: %i[create]
+    resources :items, only: %i[create update destroy]
     delete :clear_game_logs, on: :member
   end
 

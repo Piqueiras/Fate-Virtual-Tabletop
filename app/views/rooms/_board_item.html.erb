@@ -1,0 +1,22 @@
+<div id="board_item_<%= item.id %>"
+     data-room-board-target="token" 
+     data-item-id="<%= item.id %>"
+     data-action="pointerdown->room-board#startDrag" 
+     class="absolute select-none cursor-grab active:cursor-grabbing group drop-shadow-md transition-transform z-30 flex items-center justify-center" 
+     style="left: <%= item.pos_x %>px; top: <%= item.pos_y %>px;">
+  
+  <div class="w-2/3 h-2/3 bg-amber-50 rounded-lg border-2 border-amber-400 overflow-hidden relative shadow-sm pointer-events-none">
+    <% if item.image.attached? %>
+      <%= image_tag item.image, class: "w-full h-full object-cover", loading: "eager" %>
+    <% else %>
+      <div class="w-full h-full flex items-center justify-center text-xl">📦</div>
+    <% end %>
+  </div>
+
+  <div class="absolute -top-1 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50">
+    <%= item.name %>
+    <% if item.description.present? %>
+      <div class="font-normal text-[10px] text-slate-300"><%= item.description %></div>
+    <% end %>
+  </div>
+</div>

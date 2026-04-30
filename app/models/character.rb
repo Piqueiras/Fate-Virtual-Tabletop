@@ -3,6 +3,8 @@ class Character < ApplicationRecord
   has_one_attached :avatar
   has_many :room_characters, dependent: :destroy
   has_many :rooms, through: :room_characters
+  # Si borras un personaje de tu cuenta, los objetos que tenía en una sala se caen al suelo
+  has_many :items, dependent: :nullify
 
   scope :publicly_visible, -> { where(is_secret: [false, nil]) }
   scope :owned_by, ->(user) { where(user: user) }
