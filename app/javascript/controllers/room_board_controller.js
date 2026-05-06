@@ -48,13 +48,18 @@ export default class extends Controller {
 
     // 2. Iniciamos la espera
     this.waitForBoardToLoad()
+
+    // Guardar canvas al cerrar/recargar la página
+    this.boundBeforeUnload = () => this.saveCanvasDataSync()
+    window.addEventListener("beforeunload", this.boundBeforeUnload)
   }
 
   disconnect() {
+    window.removeEventListener("beforeunload", this.boundBeforeUnload)
     if (this.resizeObserver) this.resizeObserver.disconnect()
     if (this.drawingSubscription) this.drawingSubscription.unsubscribe()
     if (this.cable) this.cable.disconnect()
-    this.saveCanvasData()
+    this.saveCanvasDataSync()
   }
 
   // ==========================================
@@ -181,6 +186,8 @@ export default class extends Controller {
       token.style.width = `${realSize}px`
       token.style.height = `${realSize}px`
       token.dataset.virtSize = virtSize
+      // Reposicionar desde data-virt-x/y (crucial cuando se conectaron antes de boardReady)
+      this.repositionToken(token)
     })
 
     if (this.boardReady) {
@@ -340,8 +347,8 @@ export default class extends Controller {
     this.currentStrokeId = null
     this.currentStrokePoints = null
 
-    // Guardar canvas en BD con debounce
-    this.scheduleSaveCanvas()
+    // Guardar canvas en BD inmediatamente (sin debounce para evitar pérdida en recarga rápida)
+    this.saveCanvasData()
   }
 
   scheduleSaveCanvas() {
@@ -359,6 +366,23 @@ export default class extends Controller {
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': tokenMeta?.content },
       body: JSON.stringify({ room: { canvas_data: dataUrl } }),
     }).catch((error) => console.error("Error guardando canvas", error))
+  }
+
+  // Método síncrono para guardar al recargar/cerrar la página (usando sendBeacon)
+  saveCanvasDataSync() {
+    if (!this.ctx || !this.hasCanvasTarget) return
+    const dataUrl = this.canvasTarget.toDataURL()
+    const tokenMeta = document.querySelector("meta[name='csrf-token']")
+    if (navigator.sendBeacon) {
+      // sendBeacon es POST, necesitamos PATCH... no es posible.
+      // Alternativa: usar fetch con keepalive: true
+      fetch(`/rooms/${this.roomIdValue}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': tokenMeta?.content },
+        body: JSON.stringify({ room: { canvas_data: dataUrl } }),
+        keepalive: true
+      }).catch(() => {})
+    }
   }
 
   clearCanvas(event) {
@@ -391,6 +415,21 @@ export default class extends Controller {
   }
 
   handleDrawingData(data) {
+    // Handle character updates
+    if (data.action === 'character_update') {
+      this.handleCharacterUpdate(data)
+      return
+    }
+
+    // Handle clear_canvas action
+    if (data.action === 'clear_canvas') {
+      if (this.ctx) {
+        this.ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT)
+        this.scheduleSaveCanvas()
+      }
+      return
+    }
+
     if (!this.isDrawingMode && !this.ctx) {
       this.setupCanvas()
     }
@@ -398,13 +437,6 @@ export default class extends Controller {
 
     const canvas = this.canvasTarget
     if (!canvas) return
-
-    // Handle clear_canvas action
-    if (data.action === 'clear_canvas') {
-      this.ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT)
-      this.scheduleSaveCanvas()
-      return
-    }
 
     const points = data.points
     if (!points || points.length < 1) return
@@ -818,7 +850,12 @@ export default class extends Controller {
     const nextPoints = Math.max(0, currentPoints + delta)
 
     this.updateCharacterAttributes(characterId, { fate_points: nextPoints }, `Puntos de destino de ${this.characterName(card)} ${delta > 0 ? 'aumentaron' : 'disminuyeron'} a ${nextPoints}.`)
-      .then(() => { if (pointsLabel) pointsLabel.textContent = nextPoints })
+      .then(() => {
+        if (pointsLabel) pointsLabel.textContent = nextPoints
+        // Actualizar el resumen contraído (summary bar)
+        const summaryFate = card.querySelector('summary .inline-flex.h-8.min-w-\\[2rem\\]')
+        if (summaryFate) summaryFate.textContent = nextPoints
+      })
   }
 
   toggleStressSlot(event) {
@@ -838,7 +875,36 @@ export default class extends Controller {
     const label = type === 'physical' ? 'Estrés físico' : 'Estrés mental'
 
     this.updateCharacterAttributes(characterId, { [paramKey]: slots }, `${label} de ${this.characterName(card)} ${action}.`)
-      .then(() => this.updateStressButtons(buttons, slots))
+      .then(() => {
+        this.updateStressButtons(buttons, slots)
+        // Actualizar el resumen contraído (summary bar)
+        this.updateSummaryStress(card, type, slots)
+      })
+  }
+
+  updateSummaryStress(card, type, slots) {
+    // Buscar los spans del resumen en el summary
+    const stressClass = type === 'physical' ? 'border-red-600' : 'border-blue-600'
+    const summaryStressSpans = card.querySelectorAll(`summary span.rounded-full.h-7.w-7`)
+    let typeIndex = 0
+    let found = 0
+
+    summaryStressSpans.forEach((span) => {
+      if (span.classList.contains('border-red-600') || span.classList.contains('border-red-600/70') || span.classList.contains('border-blue-600') || span.classList.contains('border-blue-600/70')) {
+        const currentType = (span.classList.contains('border-red-600') || span.classList.contains('border-red-600/70')) ? 'physical' : 'mental'
+        if (currentType === type) {
+          const filled = Boolean(slots[found])
+          if (filled) {
+            span.classList.add(type === 'physical' ? 'bg-red-600' : 'bg-blue-600', type === 'physical' ? 'border-red-600' : 'border-blue-600')
+            span.classList.remove(type === 'physical' ? 'border-red-600/70' : 'border-blue-600/70', 'bg-white')
+          } else {
+            span.classList.add('bg-white', type === 'physical' ? 'border-red-600/70' : 'border-blue-600/70')
+            span.classList.remove(type === 'physical' ? 'bg-red-600' : 'bg-blue-600', type === 'physical' ? 'border-red-600' : 'border-blue-600')
+          }
+          found++
+        }
+      }
+    })
   }
 
   updateStressButtons(buttons, slots) {
@@ -855,6 +921,73 @@ export default class extends Controller {
       } else {
         button.className = `h-8 w-8 rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-0 cursor-pointer ${filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white'}`
       }
+    })
+  }
+
+  handleCharacterUpdate(data) {
+    // Buscar todas las tarjetas de este personaje y actualizar sus valores
+    const cards = document.querySelectorAll(`[data-character-id="${data.character_id}"]`)
+    cards.forEach((card) => {
+      // Actualizar puntos de destino en el summary
+      const summaryFate = card.querySelector('summary span.inline-flex.h-8.min-w-\\[2rem\\]')
+      if (summaryFate) summaryFate.textContent = data.fate_points
+
+      // Actualizar puntos de destino en el panel expandido
+      const expandedFate = card.querySelector('[data-room-board-target="fatePoints"]')
+      if (expandedFate) expandedFate.textContent = data.fate_points
+
+      // Actualizar estreses en el summary
+      if (data.physical_stress !== undefined) {
+        const physSpans = card.querySelectorAll('summary span.rounded-full.h-7.w-7.shrink-0')
+        let physIndex = 0
+        physSpans.forEach((span) => {
+          if ((span.classList.contains('border-red-600') || span.classList.contains('border-red-600/70') || span.classList.contains('bg-red-600'))) {
+            const slotFilled = (data.physical_stress & (1 << physIndex)) > 0
+            if (slotFilled) {
+              span.classList.add('bg-red-600', 'border-red-600')
+              span.classList.remove('border-red-600/70', 'bg-white')
+            } else {
+              span.classList.add('bg-white', 'border-red-600/70')
+              span.classList.remove('bg-red-600', 'border-red-600')
+            }
+            physIndex++
+          }
+        })
+      }
+
+      if (data.mental_stress !== undefined) {
+        const mentSpans = card.querySelectorAll('summary span.rounded-full.h-7.w-7.shrink-0')
+        let mentIndex = 0
+        mentSpans.forEach((span) => {
+          if ((span.classList.contains('border-blue-600') || span.classList.contains('border-blue-600/70') || span.classList.contains('bg-blue-600'))) {
+            const slotFilled = (data.mental_stress & (1 << mentIndex)) > 0
+            if (slotFilled) {
+              span.classList.add('bg-blue-600', 'border-blue-600')
+              span.classList.remove('border-blue-600/70', 'bg-white')
+            } else {
+              span.classList.add('bg-white', 'border-blue-600/70')
+              span.classList.remove('bg-blue-600', 'border-blue-600')
+            }
+            mentIndex++
+          }
+        })
+      }
+
+      // Actualizar botones de estrés en el panel expandido
+      const allStressButtons = card.querySelectorAll('button[data-stress-type]')
+      allStressButtons.forEach((btn) => {
+        const type = btn.dataset.stressType
+        const index = parseInt(btn.dataset.stressIndex)
+        const stressValue = type === 'physical' ? data.physical_stress : data.mental_stress
+        const filled = (stressValue & (1 << index)) > 0
+        btn.dataset.filled = filled
+        btn.setAttribute('aria-pressed', filled)
+        if (type === 'physical') {
+          btn.className = `h-8 w-8 rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-0 cursor-pointer ${filled ? 'border-red-600 bg-red-600' : 'border-red-600/70 bg-white'}`
+        } else {
+          btn.className = `h-8 w-8 rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-0 cursor-pointer ${filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white'}`
+        }
+      })
     })
   }
 

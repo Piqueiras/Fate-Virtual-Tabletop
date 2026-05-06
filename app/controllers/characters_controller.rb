@@ -12,6 +12,9 @@ class CharactersController < ApplicationController
   end
 
   def show
+    if params[:room_id]
+      @room = Room.find_by(id: params[:room_id])
+    end
   end
 
   def new
@@ -59,6 +62,16 @@ class CharactersController < ApplicationController
   def update
     attributes = character_params.to_h
 
+    # Convertir aspects de hash con índices a array de hashes
+    if attributes[:aspects].is_a?(Hash)
+      attributes[:aspects] = attributes[:aspects].values
+    end
+
+    # Convertir stunts de hash con índices a array de hashes
+    if attributes[:stunts].is_a?(Hash)
+      attributes[:stunts] = attributes[:stunts].values
+    end
+
     if params[:character][:physical_stress_slots]
       attributes[:physical_stress] = Character.stress_mask_for_slots(params[:character][:physical_stress_slots])
       attributes.except!(:physical_stress_slots)
@@ -101,7 +114,16 @@ class CharactersController < ApplicationController
   end
 
   def set_character
-    @character = current_user.characters.find(params[:id])
+    # El dueño del personaje
+    @character = current_user.characters.find_by(id: params[:id])
+
+    # Si no es el dueño, comprobar si es DM en alguna sala donde esté este personaje
+    if @character.nil?
+      @character = Character.joins(:room_characters).where(room_characters: { room: current_user.rooms }).find_by(id: params[:id])
+    end
+
+    # Si sigue sin encontrar, no autorizado
+    render json: { error: "No autorizado" }, status: :forbidden and return if @character.nil?
   end
 
   def import_json_text
@@ -118,9 +140,9 @@ class CharactersController < ApplicationController
   # Observa cómo permitimos 'aspects' como una lista de objetos con título, nombre y descripción,
   # y 'skills' como un objeto que puede recibir cualquier clave.
   params.require(:character).permit(
-    :name, :description, :physical_stress, :mental_stress, :avatar, :fate_points,
-    aspects: [:title, :name, :description],
-    stunts: [:title, :skill, :description],
+    :name, :description, :physical_stress, :mental_stress, :avatar, :fate_points, :skills_private,
+    aspects: [:title, :name, :description, :private],
+    stunts: [:title, :skill, :description, :private],
     extras: [],
     consequences: [],
     skills: { "5" => [], "4" => [], "3" => [], "2" => [], "1" => [], "-1" => [] },

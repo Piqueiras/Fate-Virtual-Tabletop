@@ -133,4 +133,33 @@ class Character < ApplicationRecord
       value.to_s == "1" ? mask | (1 << index) : mask
     end
   end
+
+  after_update_commit :broadcast_character_update
+
+  def visible_to?(user, room = nil)
+    return true if user_id == user&.id
+    return true if room && room.dm_id == user&.id
+    false
+  end
+
+  private
+
+  def broadcast_character_update
+    changed_attrs = saved_changes.keys.map(&:to_sym)
+    relevant = changed_attrs & [:fate_points, :physical_stress, :mental_stress]
+    return if relevant.empty?
+
+    room_characters.where(is_active: true).find_each do |rc|
+      ActionCable.server.broadcast(
+        "drawing_room_#{rc.room_id}",
+        {
+          action: "character_update",
+          character_id: id,
+          fate_points: fate_points,
+          physical_stress: physical_stress,
+          mental_stress: mental_stress
+        }
+      )
+    end
+  end
 end

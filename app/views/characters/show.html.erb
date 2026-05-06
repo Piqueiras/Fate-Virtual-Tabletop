@@ -1,5 +1,7 @@
 <div class="max-w-6xl mx-auto mt-10 p-6">
   <% owner = @character.user_id == current_user.id %>
+  <% is_dm_room = @room&.dm_id == current_user.id %>
+  <% can_see_private = owner || is_dm_room %>
   <div class="flex justify-between items-center mb-8 border-b pb-4">
     <%= link_to "← Volver", request.referer || characters_path, class: "text-gray-500 hover:text-indigo-600 font-medium transition" %>
     <div class="flex flex-wrap gap-3 items-center">
@@ -43,7 +45,7 @@
       </div>
 
       <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-        <% if owner %>
+        <% if can_see_private %>
           <form action="<%= character_path(@character) %>" method="post" class="grid grid-cols-1 gap-4">
             <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
             <%= hidden_field_tag :_method, "patch" %>
@@ -97,49 +99,69 @@
               </div>
             </form>
           <% else %>
-            <div class="grid grid-cols-1 gap-4">
-              <div class="rounded-3xl border border-slate-100 bg-slate-50 p-4">
-                <div class="mb-3">
-                  <h4 class="text-sm font-black text-slate-700 uppercase tracking-tighter">Estrés Físico</h4>
-                </div>
-                <div class="flex gap-3">
-                  <% @character.physical_stress_capacity.times do |n| %>
-                    <% filled = @character.physical_stress_slot?(n) %>
-                    <div class="stress-box w-12 h-12 border-2 rounded-xl flex items-center justify-center font-bold text-slate-700 <%= filled ? 'bg-red-600 text-white border-red-600' : 'bg-white border-slate-300' %>"><%= n + 1 %></div>
-                  <% end %>
-                </div>
-              </div>
-
-              <div class="rounded-3xl border border-slate-100 bg-slate-50 p-4">
-                <div class="mb-3">
-                  <h4 class="text-sm font-black text-slate-700 uppercase tracking-tighter">Estrés Mental</h4>
-                </div>
-                <div class="flex gap-3">
-                  <% @character.mental_stress_capacity.times do |n| %>
-                    <% filled = @character.mental_stress_slot?(n) %>
-                    <div class="stress-box w-12 h-12 border-2 rounded-xl flex items-center justify-center font-bold text-slate-700 <%= filled ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300' %>"><%= n + 1 %></div>
-                  <% end %>
-                </div>
-              </div>
-
-              <div class="rounded-3xl border border-slate-100 bg-slate-50 p-4">
-                <div class="mb-3">
-                  <h4 class="text-sm font-black text-slate-700 uppercase tracking-tighter">Consecuencias</h4>
-                </div>
-                <% consequences = Array(@character.consequences || []) %>
-                <% titles = [2, 2, 4, 6] %>
-                <div class="space-y-4">
-                  <% titles.each_with_index do |title, index| %>
-                    <div class="rounded-2xl border border-slate-200 bg-white p-3">
-                      <div class="mb-2 flex items-center justify-between gap-3">
-                        <span class="text-xs uppercase tracking-widest text-slate-500 font-bold">Consecuencia <%= title %></span>
-                      </div>
-                      <p class="text-sm text-slate-600"><%= consequences[index].presence || "—" %></p>
+            <% if @character.skills_private %>
+              <div class="text-center py-8">
+                <div class="blur-[6px] select-none bg-slate-100 rounded-xl p-4 inline-block">
+                  <div class="space-y-3">
+                    <div class="flex gap-3">
+                      <% 3.times do |i| %>
+                        <div class="stress-box w-12 h-12 border-2 rounded-xl bg-white border-slate-300 flex items-center justify-center font-bold text-transparent"><%= i + 1 %></div>
+                      <% end %>
                     </div>
-                  <% end %>
+                    <div class="flex gap-3">
+                      <% 3.times do |i| %>
+                        <div class="stress-box w-12 h-12 border-2 rounded-xl bg-white border-slate-300 flex items-center justify-center font-bold text-transparent"><%= i + 1 %></div>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-4 font-medium">🔒 El estrés de este personaje es privado</p>
+              </div>
+            <% else %>
+              <div class="grid grid-cols-1 gap-4">
+                <div class="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+                  <div class="mb-3">
+                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-tighter">Estrés Físico</h4>
+                  </div>
+                  <div class="flex gap-3">
+                    <% @character.physical_stress_capacity.times do |n| %>
+                      <% filled = @character.physical_stress_slot?(n) %>
+                      <div class="stress-box w-12 h-12 border-2 rounded-xl flex items-center justify-center font-bold text-slate-700 <%= filled ? 'bg-red-600 text-white border-red-600' : 'bg-white border-slate-300' %>"><%= n + 1 %></div>
+                    <% end %>
+                  </div>
+                </div>
+
+                <div class="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+                  <div class="mb-3">
+                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-tighter">Estrés Mental</h4>
+                  </div>
+                  <div class="flex gap-3">
+                    <% @character.mental_stress_capacity.times do |n| %>
+                      <% filled = @character.mental_stress_slot?(n) %>
+                      <div class="stress-box w-12 h-12 border-2 rounded-xl flex items-center justify-center font-bold text-slate-700 <%= filled ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300' %>"><%= n + 1 %></div>
+                    <% end %>
+                  </div>
+                </div>
+
+                <div class="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+                  <div class="mb-3">
+                    <h4 class="text-sm font-black text-slate-700 uppercase tracking-tighter">Consecuencias</h4>
+                  </div>
+                  <% consequences = Array(@character.consequences || []) %>
+                  <% titles = [2, 2, 4, 6] %>
+                  <div class="space-y-4">
+                    <% titles.each_with_index do |title, index| %>
+                      <div class="rounded-2xl border border-slate-200 bg-white p-3">
+                        <div class="mb-2 flex items-center justify-between gap-3">
+                          <span class="text-xs uppercase tracking-widest text-slate-500 font-bold">Consecuencia <%= title %></span>
+                        </div>
+                        <p class="text-sm text-slate-600"><%= consequences[index].presence || "—" %></p>
+                      </div>
+                    <% end %>
+                  </div>
                 </div>
               </div>
-            </div>
+            <% end %>
           <% end %>
         </div>
       </div>
@@ -159,23 +181,44 @@
         </div>
         <div class="p-6 space-y-4">
           <% (@character.aspects || []).each_with_index do |aspect, i| %>
-            <% if aspect.is_a?(Hash) %>
+            <% is_private = aspect.is_a?(Hash) && (aspect["private"] == true || aspect["private"] == "true") %>
+            <% if is_private && !can_see_private %>
+              <!-- Otro jugador ve un aspecto privado: borroso -->
               <div class="space-y-2">
                 <div class="flex items-start gap-4 group">
-                  <span class="w-32 flex-shrink-0 text-[10px] font-black text-indigo-400 uppercase pt-1.5 group-hover:text-indigo-600 transition"><%= aspect["title"].presence || (i == 0 ? "Concepto Principal" : i == 1 ? "Dificultad" : "Aspecto") %></span>
+                  <span class="w-32 flex-shrink-0 text-[10px] font-black text-slate-300 uppercase pt-1.5">🔒 Privado</span>
                   <div class="flex-grow">
-                    <p class="text-lg text-slate-800 font-semibold border-b border-slate-100 pb-2"><%= aspect["name"] %></p>
-                    <% if aspect["description"].present? %>
-                      <p class="mt-2 text-sm text-slate-500"><%= aspect["description"] %></p>
-                    <% end %>
+                    <div class="blur-[6px] select-none bg-slate-100 rounded-lg p-3">
+                      <p class="text-lg text-transparent border-b border-slate-100 pb-2">••••••••••••••••</p>
+                      <p class="mt-2 text-sm text-transparent">••••••••••</p>
+                    </div>
                   </div>
                 </div>
               </div>
             <% else %>
-              <div class="flex items-start gap-4 group">
-                <span class="w-32 flex-shrink-0 text-[10px] font-black text-indigo-400 uppercase pt-1.5 group-hover:text-indigo-600 transition"><%= i == 0 ? "Concepto Principal" : (i == 1 ? "Dificultad" : "Aspecto") %></span>
-                <p class="text-lg text-slate-800 font-semibold border-b border-slate-100 pb-2 flex-grow"><%= aspect %></p>
-              </div>
+              <%# Dueño o DM ve el aspecto (con indicador si es privado) %>
+              <% extra_class = is_private ? 'ring-2 ring-violet-300 bg-violet-50/50 rounded-xl' : '' %>
+              <% if aspect.is_a?(Hash) %>
+                <div class="space-y-2">
+                  <div class="flex items-start gap-4 group <%= extra_class %> p-2">
+                    <span class="w-32 flex-shrink-0 text-[10px] font-black <%= is_private ? 'text-violet-500' : 'text-indigo-400' %> uppercase pt-1.5 group-hover:text-indigo-600 transition">
+                      <%= aspect["title"].presence || (i == 0 ? "Concepto Principal" : i == 1 ? "Dificultad" : "Aspecto") %>
+                      <%= is_private ? ' 🔒' : '' %>
+                    </span>
+                    <div class="flex-grow">
+                      <p class="text-lg text-slate-800 font-semibold border-b border-slate-100 pb-2"><%= aspect["name"] %></p>
+                      <% if aspect["description"].present? %>
+                        <p class="mt-2 text-sm text-slate-500"><%= aspect["description"] %></p>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              <% else %>
+                <div class="flex items-start gap-4 group">
+                  <span class="w-32 flex-shrink-0 text-[10px] font-black text-indigo-400 uppercase pt-1.5 group-hover:text-indigo-600 transition"><%= i == 0 ? "Concepto Principal" : (i == 1 ? "Dificultad" : "Aspecto") %></span>
+                  <p class="text-lg text-slate-800 font-semibold border-b border-slate-100 pb-2 flex-grow"><%= aspect %></p>
+                </div>
+              <% end %>
             <% end %>
           <% end %>
         </div>
@@ -186,8 +229,24 @@
           <h2 class="font-bold text-slate-700 uppercase tracking-widest text-xs">Pirámide de Habilidades</h2>
         </div>
         <div class="p-8 space-y-6">
-          <% if @character.skills.is_a?(Hash) %>
-            <div class="space-y-4">
+          <% skills_private = @character.skills_private %>
+          <% if skills_private && !can_see_private %>
+            <div class="text-center py-8">
+              <div class="blur-[6px] select-none bg-slate-100 rounded-xl p-6 inline-block">
+                <div class="space-y-3">
+                  <% 3.times do %>
+                    <div class="flex flex-wrap gap-2">
+                      <% rand(2..5).times do %>
+                        <span class="px-3 py-1.5 bg-white text-transparent rounded-full text-sm font-semibold border border-slate-200 shadow-sm">•••••••••</span>
+                      <% end %>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+              <p class="text-xs text-slate-400 mt-4 font-medium">🔒 Las habilidades de este personaje son privadas</p>
+            </div>
+          <% elsif @character.skills.is_a?(Hash) %>
+            <div class="space-y-4 <%= skills_private ? 'ring-2 ring-violet-300 bg-violet-50/50 rounded-xl p-4' : '' %>">
               <% Character::SKILLS_LEVELS.each do |level| %>
                 <% skills = Array(@character.skills[level[:key]]).reject(&:blank?) %>
                 <% next if (level[:key] == "5" || level[:key] == "-1") && skills.empty? %>
@@ -208,6 +267,9 @@
                 </div>
               <% end %>
             </div>
+            <% if skills_private && owner %>
+              <p class="text-xs text-violet-500 font-medium text-center">🔒 Esta pirámide de habilidades es privada</p>
+            <% end %>
           <% else %>
             <p class="text-slate-400 italic">No hay habilidades configuradas aún.</p>
           <% end %>
@@ -219,22 +281,36 @@
           <div class="px-6 py-4 bg-slate-50 border-b border-gray-100"><h2 class="font-bold text-slate-700 uppercase tracking-widest text-xs">Proezas</h2></div>
           <div class="p-6 space-y-4">
             <% (@character.stunts || []).each do |stunt| %>
-              <% if stunt.is_a?(Hash) %>
-                <div class="text-slate-700 leading-relaxed border-l-4 border-amber-400 pl-4 py-3 bg-amber-50/30 rounded-r-lg">
+              <% is_private = stunt.is_a?(Hash) && (stunt["private"] == true || stunt["private"] == "true") %>
+              <% if is_private && !can_see_private %>
+                <div class="blur-[6px] select-none bg-slate-100 rounded-lg p-4 border-l-4 border-slate-300">
                   <div class="flex flex-col gap-1">
-                    <div class="text-sm font-semibold text-slate-900">
-                      <%= stunt["title"].presence || "Proeza" %>
-                      <% if stunt["skill"].present? %>
-                        <span class="text-indigo-600 font-medium">— <%= stunt["skill"] %></span>
-                      <% end %>
-                    </div>
-                    <% if stunt["description"].present? %>
-                      <div class="text-sm text-slate-700"><%= stunt["description"] %></div>
-                    <% end %>
+                    <div class="text-sm font-semibold text-transparent">••••••••••••</div>
+                    <div class="text-sm text-transparent">••••••••••••</div>
                   </div>
                 </div>
               <% else %>
-                <div class="text-slate-700 text-sm leading-relaxed border-l-4 border-amber-400 pl-4 py-1 bg-amber-50/30 rounded-r-lg"><%= stunt %></div>
+                <% extra_class = is_private ? 'ring-2 ring-violet-300' : '' %>
+                <% if stunt.is_a?(Hash) %>
+                  <div class="text-slate-700 leading-relaxed border-l-4 border-amber-400 pl-4 py-3 bg-amber-50/30 rounded-r-lg <%= extra_class %>">
+                    <div class="flex flex-col gap-1">
+                      <div class="text-sm font-semibold text-slate-900">
+                        <%= stunt["title"].presence || "Proeza" %>
+                        <% if stunt["skill"].present? %>
+                          <span class="text-indigo-600 font-medium">— <%= stunt["skill"] %></span>
+                        <% end %>
+                        <% if is_private %>
+                          <span class="text-violet-500 text-xs ml-2">🔒</span>
+                        <% end %>
+                      </div>
+                      <% if stunt["description"].present? %>
+                        <div class="text-sm text-slate-700"><%= stunt["description"] %></div>
+                      <% end %>
+                    </div>
+                  </div>
+                <% else %>
+                  <div class="text-slate-700 text-sm leading-relaxed border-l-4 border-amber-400 pl-4 py-1 bg-amber-50/30 rounded-r-lg"><%= stunt %></div>
+                <% end %>
               <% end %>
             <% end %>
           </div>

@@ -25,7 +25,7 @@
 
   <body>
     <header class="bg-white shadow-sm border-b border-slate-200">
-      <div class="container mx-auto px-5 py-4 flex items-center justify-between">
+      <div class="w-full px-5 py-4 flex items-center justify-between">
         <div class="flex items-center gap-6">
           <%= link_to "Fate Vtt", root_path, class: "text-xl font-black text-slate-900" %>
           <% if user_signed_in? %>
@@ -34,6 +34,7 @@
           <% end %>
         </div>
         <div class="flex items-center gap-4">
+          <%= yield :header_info %>
           <% if user_signed_in? %>
             <%= link_to "Cerrar sesión", destroy_user_session_path, data: { turbo_method: :delete }, class: "text-sm font-semibold text-slate-700 hover:text-slate-900" %>
           <% else %>
@@ -43,8 +44,14 @@
         </div>
       </div>
     </header>
-    <main class="container mx-auto mt-10 px-5">
-      <%= yield %>
-    </main>
+    <% if controller_name == 'rooms' && action_name == 'show' %>
+      <main class="w-full">
+        <%= yield %>
+      </main>
+    <% else %>
+      <main class="container mx-auto mt-10 px-5">
+        <%= yield %>
+      </main>
+    <% end %>
   </body>
 </html>

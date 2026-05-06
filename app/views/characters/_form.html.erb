@@ -23,24 +23,29 @@
        end %>
 
     <div data-nested-form-target="container" class="space-y-4">
-      <% initial_aspects.each do |aspect| %>
+      <% initial_aspects.each_with_index do |aspect, idx| %>
         <div class="nested-fields bg-white rounded-xl border border-gray-200 p-4 space-y-3">
           <div class="flex items-center justify-between gap-3">
             <div class="flex-1 space-y-1">
               <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
-              <input type="text" name="character[aspects][][title]" value="<%= aspect["title"] %>" placeholder="Concepto principal, Dificultad, Relación con el mundo..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+              <input type="text" name="character[aspects][<%= idx %>][title]" value="<%= aspect["title"] %>" placeholder="Concepto principal, Dificultad, Relación con el mundo..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
             </div>
             <button type="button" data-action="click->nested-form#remove" class="text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded">×</button>
           </div>
 
           <div class="space-y-1">
             <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</label>
-            <input type="text" name="character[aspects][][name]" value="<%= aspect["name"] %>" placeholder="Ej: Concepto principal..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+            <input type="text" name="character[aspects][<%= idx %>][name]" value="<%= aspect["name"] %>" placeholder="Ej: Concepto principal..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
           </div>
 
           <div class="space-y-1">
             <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción (opcional)</label>
-            <textarea name="character[aspects][][description]" rows="2" placeholder="Descripción opcional..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"><%= aspect["description"] %></textarea>
+            <textarea name="character[aspects][<%= idx %>][description]" rows="2" placeholder="Descripción opcional..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"><%= aspect["description"] %></textarea>
+          </div>
+          <div class="flex items-center gap-2 mt-2">
+            <input type="hidden" name="character[aspects][<%= idx %>][private]" value="false">
+            <input type="checkbox" name="character[aspects][<%= idx %>][private]" value="true" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <%= aspect["private"] == true || aspect["private"] == "true" ? "checked" : "" %>>
+            <span class="text-xs text-slate-500 font-medium">🔒 Privado (solo tú y el DM)</span>
           </div>
         </div>
       <% end %>
@@ -51,19 +56,24 @@
         <div class="flex items-center justify-between gap-3">
           <div class="flex-1 space-y-1">
             <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
-            <input type="text" name="character[aspects][][title]" placeholder="Concepto principal, Dificultad, Relación con el mundo..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+            <input type="text" name="character[aspects][NEW_INDEX][title]" placeholder="Concepto principal, Dificultad, Relación con el mundo..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
           </div>
           <button type="button" data-action="click->nested-form#remove" class="text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded">×</button>
         </div>
 
         <div class="space-y-1">
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Nombre</label>
-          <input type="text" name="character[aspects][][name]" placeholder="Ej: Concepto principal..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+          <input type="text" name="character[aspects][NEW_INDEX][name]" placeholder="Ej: Concepto principal..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
         </div>
 
         <div class="space-y-1">
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción (opcional)</label>
-          <textarea name="character[aspects][][description]" rows="2" placeholder="Descripción opcional..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"></textarea>
+          <textarea name="character[aspects][NEW_INDEX][description]" rows="2" placeholder="Descripción opcional..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"></textarea>
+        </div>
+        <div class="flex items-center gap-2 mt-2">
+          <input type="hidden" name="character[aspects][NEW_INDEX][private]" value="false">
+          <input type="checkbox" name="character[aspects][NEW_INDEX][private]" value="true" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+          <span class="text-xs text-slate-500 font-medium">🔒 Privado (solo tú y el DM)</span>
         </div>
       </div>
     </template>
@@ -81,24 +91,29 @@
        end %>
 
     <div data-nested-form-target="container" class="space-y-4">
-      <% initial_stunts.each do |stunt| %>
+      <% initial_stunts.each_with_index do |stunt, idx| %>
         <div class="nested-fields bg-white rounded-xl border border-gray-200 p-4 space-y-3">
           <div class="flex items-center justify-between gap-3">
             <div class="flex-1 space-y-1">
               <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
-              <input type="text" name="character[stunts][][title]" value="<%= stunt["title"] %>" placeholder="Nombre de la proeza" class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+              <input type="text" name="character[stunts][<%= idx %>][title]" value="<%= stunt["title"] %>" placeholder="Nombre de la proeza" class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
             </div>
             <button type="button" data-action="click->nested-form#remove" class="text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded">×</button>
           </div>
 
           <div class="space-y-1">
             <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Habilidad asociada</label>
-            <input type="text" name="character[stunts][][skill]" value="<%= stunt["skill"] %>" placeholder="Ej: Atletismo, Magia oscura..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+            <input type="text" name="character[stunts][<%= idx %>][skill]" value="<%= stunt["skill"] %>" placeholder="Ej: Atletismo, Magia oscura..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
           </div>
 
           <div class="space-y-1">
             <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción</label>
-            <textarea name="character[stunts][][description]" rows="2" placeholder="Efecto de la proeza..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"><%= stunt["description"] %></textarea>
+            <textarea name="character[stunts][<%= idx %>][description]" rows="2" placeholder="Efecto de la proeza..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"><%= stunt["description"] %></textarea>
+          </div>
+          <div class="flex items-center gap-2 mt-2">
+            <input type="hidden" name="character[stunts][<%= idx %>][private]" value="false">
+            <input type="checkbox" name="character[stunts][<%= idx %>][private]" value="true" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <%= stunt["private"] == true || stunt["private"] == "true" ? "checked" : "" %>>
+            <span class="text-xs text-slate-500 font-medium">🔒 Privado (solo tú y el DM)</span>
           </div>
         </div>
       <% end %>
@@ -109,19 +124,24 @@
         <div class="flex items-center justify-between gap-3">
           <div class="flex-1 space-y-1">
             <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Título</label>
-            <input type="text" name="character[stunts][][title]" placeholder="Nombre de la proeza" class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+            <input type="text" name="character[stunts][NEW_INDEX][title]" placeholder="Nombre de la proeza" class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
           </div>
           <button type="button" data-action="click->nested-form#remove" class="text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded">×</button>
         </div>
 
         <div class="space-y-1">
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Habilidad asociada</label>
-          <input type="text" name="character[stunts][][skill]" placeholder="Ej: Atletismo, Magia oscura..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
+          <input type="text" name="character[stunts][NEW_INDEX][skill]" placeholder="Ej: Atletismo, Magia oscura..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500">
         </div>
 
         <div class="space-y-1">
           <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción</label>
-          <textarea name="character[stunts][][description]" rows="2" placeholder="Efecto de la proeza..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"></textarea>
+          <textarea name="character[stunts][NEW_INDEX][description]" rows="2" placeholder="Efecto de la proeza..." class="w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500"></textarea>
+        </div>
+        <div class="flex items-center gap-2 mt-2">
+          <input type="hidden" name="character[stunts][NEW_INDEX][private]" value="false">
+          <input type="checkbox" name="character[stunts][NEW_INDEX][private]" value="true" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+          <span class="text-xs text-slate-500 font-medium">🔒 Privado (solo tú y el DM)</span>
         </div>
       </div>
     </template>
@@ -136,6 +156,11 @@
       <div>
         <h3 class="text-lg font-bold">Pirámide de Habilidades</h3>
         <p class="text-sm text-slate-500">Arrastra las habilidades a cada categoría. Puedes tener varias por nivel.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="hidden" name="character[skills_private]" value="0">
+        <input type="checkbox" name="character[skills_private]" value="1" id="skills_private" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" <%= @character.skills_private ? "checked" : "" %>>
+        <label for="skills_private" class="text-xs text-slate-500 font-medium cursor-pointer">🔒 Habilidades privadas</label>
       </div>
     </div>
 

@@ -6,7 +6,8 @@ export default class extends Controller {
   add(event) {
     event.preventDefault()
     // Clonamos la plantilla oculta y la insertamos en el contenedor
-    const content = this.templateTarget.innerHTML.replace(/NEW_RECORD/g, new Date().getTime())
+    const index = new Date().getTime()
+    const content = this.templateTarget.innerHTML.replace(/NEW_INDEX/g, index)
     this.containerTarget.insertAdjacentHTML('beforeend', content)
   }
 
