@@ -1,7 +1,12 @@
 import { Controller } from "@hotwired/stimulus"
+import { createConsumer } from "@rails/actioncable"
+
+// Tamaño virtual fijo del tablero (1920x1080 = 16:9)
+const VIRTUAL_WIDTH = 1920
+const VIRTUAL_HEIGHT = 1080
 
 export default class extends Controller {
-  static targets = ["board", "token", "activeList", "gameLogList", "background", "spacer", "canvas", "drawBtn", "tokenLayer"]
+  static targets = ["board", "token", "activeList", "gameLogList", "background", "spacer", "canvas", "drawBtn", "tokenLayer", "drawToolbar", "eraserBtn", "clearCanvasBtn", "canvasDataStore"]
   static values = { roomId: Number }
 
   connect() {
@@ -14,18 +19,30 @@ export default class extends Controller {
     this.isDrawingMode = false
     this.isPainting = false
     this.ctx = null
+    this.isEraser = false
+    this.drawingColor = '#000000'
+    this.canvasSaveTimeout = null
 
     // 1. Candado de seguridad para evitar cálculos prematuros
     this.boardReady = false
 
-    this.tokenSizes = [45, 75, 120, 180]
+    this.tokenSizes = [80, 160, 240, 320]
     const maxIndex = this.tokenSizes.length - 1
     const savedZoom = localStorage.getItem(`vtt_zoom_${this.roomIdValue}`)
     this.currentZoomIndex = savedZoom !== null ? parseInt(savedZoom, 10) : maxIndex
 
+    // ActionCable - suscripción al canal de dibujo
+    this.cable = createConsumer()
+    this.drawingSubscription = this.cable.subscriptions.create(
+      { channel: "DrawingChannel", room_id: this.roomIdValue },
+      { received: (data) => this.handleDrawingData(data) }
+    )
+
     this.resizeObserver = new ResizeObserver(() => {
-      // Al redimensionar la ventana, clampeamos visualmente pero NO guardamos en BD
-      if (this.boardReady) this.clampTokenPositions(false)
+      if (this.boardReady) {
+        this.repositionAllTokens()
+        this.resizeCanvas()
+      }
     })
     this.resizeObserver.observe(this.boardTarget)
 
@@ -35,15 +52,80 @@ export default class extends Controller {
 
   disconnect() {
     if (this.resizeObserver) this.resizeObserver.disconnect()
+    if (this.drawingSubscription) this.drawingSubscription.unsubscribe()
+    if (this.cable) this.cable.disconnect()
+    this.saveCanvasData()
   }
 
+  // ==========================================
+  // SISTEMA DE COORDENADAS VIRTUALES
+  // ==========================================
+
+  // Convierte coordenada virtual X a píxel real en el board
+  virtToRealX(virtX) {
+    return (virtX / VIRTUAL_WIDTH) * this.boardTarget.offsetWidth
+  }
+
+  // Convierte coordenada virtual Y a píxel real en el board
+  virtToRealY(virtY) {
+    return (virtY / VIRTUAL_HEIGHT) * this.boardTarget.offsetHeight
+  }
+
+  // Convierte píxel real del board X a coordenada virtual
+  realToVirtX(realX) {
+    return (realX / this.boardTarget.offsetWidth) * VIRTUAL_WIDTH
+  }
+
+  // Convierte píxel real del board Y a coordenada virtual
+  realToVirtY(realY) {
+    return (realY / this.boardTarget.offsetHeight) * VIRTUAL_HEIGHT
+  }
+
+  // Convierte un tamaño virtual a píxel real (escala uniforme)
+  virtToRealSize(virtSize) {
+    const scale = this.boardTarget.offsetWidth / VIRTUAL_WIDTH
+    return virtSize * scale
+  }
+
+  // Convierte tamaño real a virtual
+  realToVirtSize(realSize) {
+    const scale = VIRTUAL_WIDTH / this.boardTarget.offsetWidth
+    return realSize * scale
+  }
+
+  repositionToken(token) {
+    const virtX = parseFloat(token.dataset.virtX) || 0
+    const virtY = parseFloat(token.dataset.virtY) || 0
+    token.style.left = `${this.virtToRealX(virtX)}px`
+    token.style.top = `${this.virtToRealY(virtY)}px`
+  }
+
+  repositionAllTokens() {
+    this.tokenTargets.forEach(token => this.repositionToken(token))
+  }
+
+  // ==========================================
+  // TOKEN TARGET CONNECTED (posicionamiento inicial)
+  // ==========================================
+
   tokenTargetConnected(token) {
-    // Si aún no ha cargado el índice de zoom en el arranque, usamos el nivel 2 (120px) por defecto
     const zoomIndex = this.currentZoomIndex !== undefined ? this.currentZoomIndex : 2
-    const newSize = this.tokenSizes ? this.tokenSizes[zoomIndex] : 120
-    
-    token.style.width = `${newSize}px`
-    token.style.height = `${newSize}px`
+    const virtSize = this.tokenSizes ? this.tokenSizes[zoomIndex] : 120
+
+    // Solo ponemos tamaño y guardamos datos virtuales
+    // EL posicionamiento real se hace en unlockBoard -> applyZoom cuando boardReady=true
+    // y también en repositionAllTokens cuando el ResizeObserver se dispara
+    if (this.boardReady) {
+      token.style.width = `${this.virtToRealSize(virtSize)}px`
+      token.style.height = `${this.virtToRealSize(virtSize)}px`
+      this.repositionToken(token)
+    } else {
+      // Marcar posición absoluta 0,0 temporal hasta que el board cargue
+      token.style.left = '0px'
+      token.style.top = '0px'
+    }
+
+    token.dataset.virtSize = virtSize
   }
 
   // ==========================================
@@ -57,21 +139,20 @@ export default class extends Controller {
     }
 
     const spacer = this.spacerTarget
-    // Si no hay imagen, o la imagen ya cargó instantáneamente de la caché
     if (!spacer.getAttribute('src') || spacer.complete) {
       this.unlockBoard()
     } else {
-      // Si la imagen está tardando en descargar, nos suscribimos al evento "load"
       spacer.addEventListener('load', () => this.unlockBoard(), { once: true })
-      spacer.addEventListener('error', () => this.unlockBoard(), { once: true }) // Fallback por si falla el internet
+      spacer.addEventListener('error', () => this.unlockBoard(), { once: true })
     }
   }
 
   unlockBoard() {
-    // Damos 1 frame de respiro al navegador para pintar, y quitamos el candado
     requestAnimationFrame(() => {
       this.boardReady = true
       this.applyZoom()
+      // Inicializar canvas para cargar dibujos guardados
+      this.setupCanvas()
     })
   }
 
@@ -92,15 +173,16 @@ export default class extends Controller {
   }
 
   applyZoom() {
-    const newSize = this.tokenSizes[this.currentZoomIndex]
+    const virtSize = this.tokenSizes[this.currentZoomIndex]
+    const realSize = this.virtToRealSize(virtSize)
     localStorage.setItem(`vtt_zoom_${this.roomIdValue}`, this.currentZoomIndex)
 
     this.tokenTargets.forEach(token => {
-      token.style.width = `${newSize}px`
-      token.style.height = `${newSize}px`
+      token.style.width = `${realSize}px`
+      token.style.height = `${realSize}px`
+      token.dataset.virtSize = virtSize
     })
 
-    // Al hacer zoom explícito con los botones, SÍ guardamos si algún token choca con el borde
     if (this.boardReady) {
       this.clampTokenPositions(true)
     }
@@ -113,17 +195,32 @@ export default class extends Controller {
   setupCanvas() {
     if (!this.hasCanvasTarget) return
     const canvas = this.canvasTarget
-    
-    // El canvas necesita que sus atributos internos width/height coincidan 
-    // con sus píxeles reales en pantalla para no verse borroso ni descolocado
-    canvas.width = canvas.offsetWidth
-    canvas.height = canvas.offsetHeight
-    
-    // Configuración del "Pincel"
+
+    canvas.width = VIRTUAL_WIDTH
+    canvas.height = VIRTUAL_HEIGHT
+
     this.ctx = canvas.getContext('2d')
-    this.ctx.lineWidth = 5           // Grosor de la línea
-    this.ctx.lineCap = 'round'       // Puntas redondeadas
-    this.ctx.strokeStyle = '#ef4444' // Color rojo de Tailwind (puedes cambiarlo)
+    this.ctx.lineWidth = 5
+    this.ctx.lineCap = 'round'
+    this.ctx.lineJoin = 'round'
+    this.ctx.strokeStyle = this.drawingColor
+    this.ctx.globalCompositeOperation = 'source-over'
+
+    // Restaurar dibujos guardados si existen
+    if (this.hasCanvasDataStoreTarget) {
+      const data = this.canvasDataStoreTarget.textContent
+      if (data && data.length > 100) { // Más de 100 caracteres = hay dibujo real
+        const img = new Image()
+        img.onload = () => {
+          this.ctx.drawImage(img, 0, 0)
+        }
+        img.src = data
+      }
+    }
+  }
+
+  resizeCanvas() {
+    // El navegador maneja el escalado del canvas con CSS w-full/h-full
   }
 
   toggleDrawMode(event) {
@@ -132,36 +229,82 @@ export default class extends Controller {
 
     const btn = this.drawBtnTarget
     const canvas = this.canvasTarget
+    const toolbar = this.hasDrawToolbarTarget ? this.drawToolbarTarget : null
 
-    // Inicializamos las proporciones del canvas la primera vez
     if (this.isDrawingMode && !this.ctx) {
       this.setupCanvas()
     }
 
     if (this.isDrawingMode) {
-      // Activar Modo Dibujo: Iluminamos el botón, activamos canvas y bloqueamos tokens
       btn.classList.add('bg-indigo-100', 'border-indigo-300', 'text-indigo-700')
       btn.classList.remove('bg-white/90', 'text-slate-700')
       canvas.classList.remove('pointer-events-none')
-      
-      // Hacemos que los tokens ignoren el ratón para poder pintar sobre ellos o cerca de ellos
+      if (toolbar) toolbar.classList.remove('hidden')
+
       if (this.hasTokenLayerTarget) this.tokenLayerTarget.classList.add('pointer-events-none')
     } else {
-      // Desactivar Modo Dibujo
       btn.classList.remove('bg-indigo-100', 'border-indigo-300', 'text-indigo-700')
       btn.classList.add('bg-white/90', 'text-slate-700')
       canvas.classList.add('pointer-events-none')
-      
+      if (toolbar) toolbar.classList.add('hidden')
+
+      this.isEraser = false
+      if (this.hasEraserBtnTarget) this.eraserBtnTarget.classList.remove('bg-indigo-100', 'rounded-full')
+      if (this.ctx) this.ctx.globalCompositeOperation = 'source-over'
+
       if (this.hasTokenLayerTarget) this.tokenLayerTarget.classList.remove('pointer-events-none')
+    }
+  }
+
+  selectColor(event) {
+    const color = event.currentTarget.dataset.color
+    this.drawingColor = color
+    if (this.ctx) {
+      this.ctx.strokeStyle = color
+      if (this.isEraser) {
+        this.isEraser = false
+        if (this.hasEraserBtnTarget) this.eraserBtnTarget.classList.remove('bg-indigo-100', 'rounded-full')
+        this.ctx.globalCompositeOperation = 'source-over'
+      }
+    }
+  }
+
+  toggleEraser(event) {
+    if (!this.ctx) return
+    this.isEraser = !this.isEraser
+    const btn = this.eraserBtnTarget
+    if (this.isEraser) {
+      btn.classList.add('bg-indigo-100', 'rounded-full')
+      this.ctx.globalCompositeOperation = 'destination-out'
+      this.ctx.lineWidth = 40
+    } else {
+      btn.classList.remove('bg-indigo-100', 'rounded-full')
+      this.ctx.globalCompositeOperation = 'source-over'
+      this.ctx.lineWidth = 5
     }
   }
 
   startDrawing(event) {
     if (!this.isDrawingMode) return
     event.preventDefault()
-    
+
     this.isPainting = true
-    this.draw(event) // Para pintar un simple punto si solo hacen clic
+
+    const canvas = this.canvasTarget
+    const rect = canvas.getBoundingClientRect()
+    const x = this.realToVirtX(event.clientX - rect.left)
+    const y = this.realToVirtY(event.clientY - rect.top)
+
+    this.ctx.beginPath()
+    this.ctx.moveTo(x, y)
+
+    this.currentStrokeId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    this.currentStrokePoints = [{ x: Math.round(x), y: Math.round(y) }]
+
+    this.ctx.lineTo(x, y)
+    this.ctx.stroke()
+    this.ctx.beginPath()
+    this.ctx.moveTo(x, y)
   }
 
   draw(event) {
@@ -170,25 +313,131 @@ export default class extends Controller {
 
     const canvas = this.canvasTarget
     const rect = canvas.getBoundingClientRect()
-    
-    // Calculamos dónde está el puntero relativo al canvas
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
+    const x = this.realToVirtX(event.clientX - rect.left)
+    const y = this.realToVirtY(event.clientY - rect.top)
 
     this.ctx.lineTo(x, y)
     this.ctx.stroke()
-    
-    // Empezamos un nuevo path para que la línea fluya
     this.ctx.beginPath()
     this.ctx.moveTo(x, y)
+
+    if (this.currentStrokePoints) {
+      this.currentStrokePoints.push({ x: Math.round(x), y: Math.round(y) })
+    }
   }
 
   stopDrawing(event) {
     if (!this.isPainting) return
     event.preventDefault()
-    
+
     this.isPainting = false
-    this.ctx.beginPath() // Reseteamos el trazo
+    this.ctx.beginPath()
+
+    if (this.currentStrokePoints && this.currentStrokePoints.length > 0) {
+      this.broadcastStroke(this.currentStrokeId, this.currentStrokePoints, this.drawingColor, this.isEraser, this.ctx.lineWidth)
+    }
+
+    this.currentStrokeId = null
+    this.currentStrokePoints = null
+
+    // Guardar canvas en BD con debounce
+    this.scheduleSaveCanvas()
+  }
+
+  scheduleSaveCanvas() {
+    if (this.canvasSaveTimeout) clearTimeout(this.canvasSaveTimeout)
+    this.canvasSaveTimeout = setTimeout(() => this.saveCanvasData(), 1000)
+  }
+
+  saveCanvasData() {
+    if (!this.ctx || !this.hasCanvasTarget) return
+    const dataUrl = this.canvasTarget.toDataURL()
+
+    const tokenMeta = document.querySelector("meta[name='csrf-token']")
+    fetch(`/rooms/${this.roomIdValue}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': tokenMeta?.content },
+      body: JSON.stringify({ room: { canvas_data: dataUrl } }),
+    }).catch((error) => console.error("Error guardando canvas", error))
+  }
+
+  clearCanvas(event) {
+    if (event) event.preventDefault()
+    if (!confirm("¿Seguro que quieres borrar todo el dibujo? Esta acción no se puede deshacer.")) return
+
+    if (!this.ctx) return
+    this.ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT)
+    this.scheduleSaveCanvas()
+
+    // Broadcast clear_canvas a todos los usuarios de la sala
+    if (this.drawingSubscription) {
+      this.drawingSubscription.perform('clear_canvas', {})
+    }
+  }
+
+  // ==========================================
+  // DIBUJO SINCRONIZADO (ACTION CABLE)
+  // ==========================================
+
+  broadcastStroke(strokeId, points, color, isEraser, lineWidth) {
+    if (!this.drawingSubscription) return
+    this.drawingSubscription.perform('draw', {
+      stroke_id: strokeId,
+      points: points,
+      color: color,
+      is_eraser: isEraser,
+      line_width: lineWidth || 5
+    })
+  }
+
+  handleDrawingData(data) {
+    if (!this.isDrawingMode && !this.ctx) {
+      this.setupCanvas()
+    }
+    if (!this.ctx) return
+
+    const canvas = this.canvasTarget
+    if (!canvas) return
+
+    // Handle clear_canvas action
+    if (data.action === 'clear_canvas') {
+      this.ctx.clearRect(0, 0, VIRTUAL_WIDTH, VIRTUAL_HEIGHT)
+      this.scheduleSaveCanvas()
+      return
+    }
+
+    const points = data.points
+    if (!points || points.length < 1) return
+
+    const prevStroke = this.ctx.strokeStyle
+    const prevOp = this.ctx.globalCompositeOperation
+    const prevWidth = this.ctx.lineWidth
+
+    if (data.is_eraser) {
+      this.ctx.globalCompositeOperation = 'destination-out'
+    } else {
+      this.ctx.strokeStyle = data.color || '#000000'
+      this.ctx.globalCompositeOperation = 'source-over'
+    }
+    this.ctx.lineWidth = data.line_width || 5
+    this.ctx.lineCap = 'round'
+    this.ctx.lineJoin = 'round'
+
+    this.ctx.beginPath()
+    this.ctx.moveTo(points[0].x, points[0].y)
+
+    for (let i = 1; i < points.length; i++) {
+      this.ctx.lineTo(points[i].x, points[i].y)
+    }
+    this.ctx.stroke()
+    this.ctx.beginPath()
+
+    this.ctx.strokeStyle = prevStroke
+    this.ctx.globalCompositeOperation = prevOp
+    this.ctx.lineWidth = prevWidth
+
+    // Guardar canvas cuando recibimos datos remotos también
+    this.scheduleSaveCanvas()
   }
 
   // ==========================================
@@ -211,7 +460,7 @@ export default class extends Controller {
       this.spacerTarget.classList.remove('hidden')
       this.spacerTarget.classList.add('block')
     }
-    
+
     if (this.hasBackgroundTarget) {
       this.backgroundTarget.classList.remove('bg-gradient-to-br', 'from-slate-200', 'via-slate-100', 'to-white')
       this.backgroundTarget.classList.add('bg-cover', 'bg-center')
@@ -223,7 +472,7 @@ export default class extends Controller {
     const url = `/rooms/${this.roomIdValue}`
     const tokenMeta = document.querySelector("meta[name='csrf-token']")
     const formData = new FormData()
-    
+
     formData.append('room[background_image]', file)
 
     fetch(url, {
@@ -254,12 +503,9 @@ export default class extends Controller {
     const rect = token.getBoundingClientRect()
     this.offsetX = event.clientX - rect.left
     this.offsetY = event.clientY - rect.top
-    
-    // Elevamos la caja contenedora para que pase por encima de los demás
+
     token.classList.add("z-50")
-    
-    // NUEVO: Le ponemos el anillo azul, la sombra y un efectito de "zoom" 
-    // SOLO al círculo o cuadrado interior visual
+
     if (token.firstElementChild) {
       token.firstElementChild.classList.add("ring-4", "ring-indigo-500", "shadow-2xl", "scale-105", "transition-transform")
     }
@@ -282,10 +528,15 @@ export default class extends Controller {
     left = Math.max(0, Math.min(left, boardRect.width - this.dragging.offsetWidth))
     top = Math.max(0, Math.min(top, boardRect.height - this.dragging.offsetHeight))
 
+    const virtX = Math.round(this.realToVirtX(left))
+    const virtY = Math.round(this.realToVirtY(top))
+
     this.dragging.style.left = `${left}px`
     this.dragging.style.top = `${top}px`
-    this.dragging.dataset.roomBoardLastX = left
-    this.dragging.dataset.roomBoardLastY = top
+    this.dragging.dataset.virtX = virtX
+    this.dragging.dataset.virtY = virtY
+    this.dragging.dataset.roomBoardLastX = virtX
+    this.dragging.dataset.roomBoardLastY = virtY
   }
 
   endDrag(event) {
@@ -298,25 +549,24 @@ export default class extends Controller {
 
     const isItem = !!token.dataset.itemId
 
-    // ¿Cayó un objeto encima de un personaje o inventario?
     if (isItem) {
-      token.style.pointerEvents = "none" // Ocultamos el objeto 1 milisegundo
-      const dropTarget = document.elementFromPoint(event.clientX, event.clientY) // Miramos qué hay debajo
+      token.style.pointerEvents = "none"
+      const dropTarget = document.elementFromPoint(event.clientX, event.clientY)
       token.style.pointerEvents = "auto"
 
       const characterContainer = dropTarget?.closest('[data-character-id]')
-      
+
       if (characterContainer) {
         const characterId = characterContainer.dataset.characterId
         this.assignItemToCharacter(token.dataset.itemId, characterId)
         this.cleanUpDragEvents()
-        return // Cortamos aquí para que no guarde posición en el tablero
+        return
       }
     }
 
-    const left = Number(token.dataset.roomBoardLastX || token.style.left.replace("px", ""))
-    const top = Number(token.dataset.roomBoardLastY || token.style.top.replace("px", ""))
-    this.savePosition(token, left, top)
+    const virtX = Number(token.dataset.virtX || 0)
+    const virtY = Number(token.dataset.virtY || 0)
+    this.savePosition(token, virtX, virtY)
     this.cleanUpDragEvents()
   }
 
@@ -329,32 +579,30 @@ export default class extends Controller {
     this.endBound = null
   }
 
-  // Ahora recibe un parámetro para decidir si bombardea la BD o no
   clampTokenPositions(saveToDb = true) {
     if (!this.hasBoardTarget || !this.boardReady) return
 
-    const boardRect = this.boardTarget.getBoundingClientRect()
     const tokens = this.hasTokenTarget ? this.tokenTargets : Array.from(this.boardTarget.querySelectorAll('[data-room-board-target="token"]'))
 
     tokens.forEach((token) => {
-      const tokenWidth = token.offsetWidth
-      const tokenHeight = token.offsetHeight
-      let left = parseFloat(token.style.left) || 0
-      let top = parseFloat(token.style.top) || 0
+      const virtSize = parseFloat(token.dataset.virtSize) || 120
+      let virtX = parseFloat(token.dataset.virtX) || 0
+      let virtY = parseFloat(token.dataset.virtY) || 0
       let changed = false
 
-      if (left + tokenWidth > boardRect.width) { left = Math.max(0, boardRect.width - tokenWidth); changed = true }
-      if (top + tokenHeight > boardRect.height) { top = Math.max(0, boardRect.height - tokenHeight); changed = true }
-      if (left < 0) { left = 0; changed = true }
-      if (top < 0) { top = 0; changed = true }
+      if (virtX + virtSize > VIRTUAL_WIDTH) { virtX = Math.max(0, VIRTUAL_WIDTH - virtSize); changed = true }
+      if (virtY + virtSize > VIRTUAL_HEIGHT) { virtY = Math.max(0, VIRTUAL_HEIGHT - virtSize); changed = true }
+      if (virtX < 0) { virtX = 0; changed = true }
+      if (virtY < 0) { virtY = 0; changed = true }
 
       if (changed) {
-        token.style.left = `${left}px`
-        token.style.top = `${top}px`
-        
-        // Solo guardamos permanentemente si no viene de redimensionar la ventana
+        token.dataset.virtX = virtX
+        token.dataset.virtY = virtY
+        token.style.left = `${this.virtToRealX(virtX)}px`
+        token.style.top = `${this.virtToRealY(virtY)}px`
+
         if (saveToDb) {
-          this.savePosition(token, left, top)
+          this.savePosition(token, virtX, virtY)
         }
       }
     })
@@ -362,10 +610,9 @@ export default class extends Controller {
 
   savePosition(token, x, y) {
     const roomCharacterId = token.dataset.roomBoardRoomCharacterIdValue
-    const itemId = token.dataset.itemId // Leemos el ID del objeto que pusimos en el HTML
+    const itemId = token.dataset.itemId
     const tokenMeta = document.querySelector("meta[name='csrf-token']")
 
-    // 1. Si es un Personaje
     if (roomCharacterId) {
       const url = `/rooms/${this.roomIdValue}/room_characters/${roomCharacterId}`
       fetch(url, {
@@ -373,8 +620,7 @@ export default class extends Controller {
         headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
         body: JSON.stringify({ room_character: { pos_x: Math.round(x), pos_y: Math.round(y) } }),
       }).catch((error) => console.error("Error guardando posición de personaje", error))
-    
-    // 2. Si es un Objeto
+
     } else if (itemId) {
       const url = `/rooms/${this.roomIdValue}/items/${itemId}`
       fetch(url, {
@@ -427,24 +673,28 @@ export default class extends Controller {
     const itemId = event.dataTransfer.getData("item_id")
     if (itemId) {
       const boardRect = this.boardTarget.getBoundingClientRect()
-      // Usamos un offset fijo (ej. 30px) para que caiga centrado en el ratón
-      const left = event.clientX - boardRect.left - 30 
-      const top = event.clientY - boardRect.top - 30
-      this.dropItemOnBoard(itemId, left, top)
+      const realLeft = event.clientX - boardRect.left - 30
+      const realTop = event.clientY - boardRect.top - 30
+      const virtX = Math.round(this.realToVirtX(realLeft))
+      const virtY = Math.round(this.realToVirtY(realTop))
+      this.dropItemOnBoard(itemId, virtX, virtY)
       return
     }
 
     const characterId = event.dataTransfer.getData("text/plain")
     if (!characterId) return
 
-    const size = this.tokenSizes[this.currentZoomIndex]
-    const half = size / 2
+    const virtSize = this.tokenSizes[this.currentZoomIndex]
+    const half = virtSize / 2
 
     const boardRect = this.boardTarget.getBoundingClientRect()
-    const left = Math.max(0, Math.min(event.clientX - boardRect.left - half, boardRect.width - size))
-    const top = Math.max(0, Math.min(event.clientY - boardRect.top - half, boardRect.height - size))
+    const realLeft = event.clientX - boardRect.left - this.virtToRealSize(half)
+    const realTop = event.clientY - boardRect.top - this.virtToRealSize(half)
 
-    this.createRoomCharacter(characterId, Math.round(left), Math.round(top))
+    const virtX = Math.round(this.realToVirtX(Math.max(0, Math.min(realLeft, boardRect.width - this.virtToRealSize(virtSize)))))
+    const virtY = Math.round(this.realToVirtY(Math.max(0, Math.min(realTop, boardRect.height - this.virtToRealSize(virtSize)))))
+
+    this.createRoomCharacter(characterId, virtX, virtY)
   }
 
   dropActive(event) {
@@ -454,28 +704,42 @@ export default class extends Controller {
     const characterId = event.dataTransfer.getData("text/plain")
     if (!characterId) return
 
-    const size = this.tokenSizes[this.currentZoomIndex]
-    const half = size / 2
+    const virtSize = this.tokenSizes[this.currentZoomIndex]
+    const half = virtSize / 2
 
-    const boardRect = this.boardTarget.getBoundingClientRect()
-    const left = Math.max(0, Math.min(boardRect.width / 2 - half, boardRect.width - size))
-    const top = Math.max(0, Math.min(boardRect.height / 2 - half, boardRect.height - size))
+    const virtX = Math.round(VIRTUAL_WIDTH / 2 - half)
+    const virtY = Math.round(VIRTUAL_HEIGHT / 2 - half)
 
-    this.createRoomCharacter(characterId, Math.round(left), Math.round(top))
+    this.createRoomCharacter(characterId, virtX, virtY)
+  }
+
+  // Guarda el canvas síncronamente y espera a que termine antes de recargar
+  saveCanvasSync() {
+    if (!this.ctx || !this.hasCanvasTarget) return Promise.resolve()
+    const dataUrl = this.canvasTarget.toDataURL()
+    const tokenMeta = document.querySelector("meta[name='csrf-token']")
+    return fetch(`/rooms/${this.roomIdValue}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': tokenMeta?.content },
+      body: JSON.stringify({ room: { canvas_data: dataUrl } }),
+    }).catch((error) => console.error("Error guardando canvas", error))
   }
 
   createRoomCharacter(characterId, x, y) {
     const url = `/rooms/${this.roomIdValue}/room_characters`
     const tokenMeta = document.querySelector("meta[name='csrf-token']")
 
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
-      body: JSON.stringify({ room_character: { character_id: parseInt(characterId, 10), pos_x: x, pos_y: y, is_active: true } }),
+    // Guardar canvas primero para no perderlo al recargar
+    this.saveCanvasSync().then(() => {
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+        body: JSON.stringify({ room_character: { character_id: parseInt(characterId, 10), pos_x: x, pos_y: y, is_active: true } }),
+      })
+        .then((response) => response.ok ? response.json() : Promise.reject(response))
+        .then(() => window.location.reload())
+        .catch((error) => console.error("Error creando token en la sala", error))
     })
-      .then((response) => response.ok ? response.json() : Promise.reject(response))
-      .then(() => window.location.reload())
-      .catch((error) => console.error("Error creando token en la sala", error))
   }
 
   removeRoomCharacter(event) {
@@ -496,8 +760,6 @@ export default class extends Controller {
     })
       .then((response) => {
         if (response.ok) {
-          // Si el servidor dice OK, borramos todos los elementos visuales que tengan este ID
-          // (Tanto el token del tablero como la tarjeta de la lista)
           document.querySelectorAll(`[data-room-board-room-character-id-value="${roomCharacterId}"]`).forEach(e => e.remove())
         } else {
           return Promise.reject(response)
@@ -505,12 +767,13 @@ export default class extends Controller {
       })
       .catch((error) => console.error("Error eliminando el personaje", error))
   }
+
   startItemDrag(event) {
     const itemCard = event.currentTarget
     const itemId = itemCard.dataset.itemId
     itemCard.classList.add("opacity-50", "ring-2", "ring-indigo-500")
     event.dataTransfer.effectAllowed = "move"
-    event.dataTransfer.setData("item_id", itemId) // Etiqueta especial para objetos
+    event.dataTransfer.setData("item_id", itemId)
   }
 
   endItemDrag(event) {
@@ -520,21 +783,25 @@ export default class extends Controller {
   assignItemToCharacter(itemId, characterId) {
     const url = `/rooms/${this.roomIdValue}/items/${itemId}`
     const tokenMeta = document.querySelector("meta[name='csrf-token']")
-    fetch(url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
-      body: JSON.stringify({ item: { character_id: characterId, on_board: false } }),
-    }).then(() => window.location.reload()) // Recargamos para reflejar el cambio
+    this.saveCanvasSync().then(() => {
+      fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+        body: JSON.stringify({ item: { character_id: characterId, on_board: false } }),
+      }).then(() => window.location.reload())
+    })
   }
 
   dropItemOnBoard(itemId, x, y) {
     const url = `/rooms/${this.roomIdValue}/items/${itemId}`
     const tokenMeta = document.querySelector("meta[name='csrf-token']")
-    fetch(url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
-      body: JSON.stringify({ item: { character_id: null, on_board: true, pos_x: Math.round(x), pos_y: Math.round(y) } }),
-    }).then(() => window.location.reload())
+    this.saveCanvasSync().then(() => {
+      fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+        body: JSON.stringify({ item: { character_id: null, on_board: true, pos_x: Math.round(x), pos_y: Math.round(y) } }),
+      }).then(() => window.location.reload())
+    })
   }
 
   // ==========================================
@@ -614,24 +881,22 @@ export default class extends Controller {
   // 5. GAME LOG
   // ==========================================
 
-    rollDice(event) {
-        if (event) event.preventDefault()
+  rollDice(event) {
+    if (event) event.preventDefault()
 
-        // 1. Capturamos el nombre inyectado por Rails en el botón
-        const userName = event.currentTarget.dataset.userName || "Un jugador"
+    const userName = event.currentTarget.dataset.userName || "Un jugador"
 
-        const values = [-1, 0, 1]
-        const roll = Array.from({ length: 4 }, () => values[Math.floor(Math.random() * values.length)])
-        const sum = roll.reduce((a, b) => a + b, 0)
+    const values = [-1, 0, 1]
+    const roll = Array.from({ length: 4 }, () => values[Math.floor(Math.random() * values.length)])
+    const sum = roll.reduce((a, b) => a + b, 0)
 
-        const symbols = roll.map(v => v === 1 ? "+" : (v === -1 ? "-" : "0")).join(" ")
-        const resultText = sum > 0 ? `+${sum}` : sum.toString()
+    const symbols = roll.map(v => v === 1 ? "+" : (v === -1 ? "-" : "0")).join(" ")
+    const resultText = sum > 0 ? `+${sum}` : sum.toString()
 
-        // 2. Lo añadimos al mensaje
-        const message = `🎲 ${userName} : [ ${symbols} ] = ${resultText}`
+    const message = `🎲 ${userName} : [ ${symbols} ] = ${resultText}`
 
-        this.postGameLog(message)
-    }
+    this.postGameLog(message)
+  }
 
   postGameLog(message) {
     const url = `/rooms/${this.roomIdValue}/game_logs`
@@ -646,7 +911,7 @@ export default class extends Controller {
 
   clearLog(event) {
     event.preventDefault()
-    
+
     if (!confirm("¿Seguro que quieres borrar todo el historial? Esta acción no se puede deshacer.")) return
 
     const url = `/rooms/${this.roomIdValue}/clear_game_logs`
@@ -659,12 +924,10 @@ export default class extends Controller {
     })
     .then(response => {
       if (response.ok) {
-        // 1. Si el servidor dice "OK", borramos la caja visualmente al instante
         if (this.hasGameLogListTarget) {
           this.gameLogListTarget.innerHTML = ""
         }
       } else {
-        // 2. Si el servidor da un error 404 o 500, lo mostramos en la consola
         console.error("Error del servidor al intentar borrar:", response.status)
         alert("Hubo un problema al borrar el log. Mira la consola (F12).")
       }

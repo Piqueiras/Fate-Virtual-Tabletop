@@ -2,8 +2,9 @@
      data-room-board-target="token" 
      data-item-id="<%= item.id %>"
      data-action="pointerdown->room-board#startDrag" 
-     class="absolute select-none cursor-grab active:cursor-grabbing group drop-shadow-md transition-transform z-30 flex items-center justify-center" 
-     style="left: <%= item.pos_x %>px; top: <%= item.pos_y %>px;">
+     data-virt-x="<%= item.pos_x %>"
+     data-virt-y="<%= item.pos_y %>"
+     class="absolute select-none cursor-grab active:cursor-grabbing group drop-shadow-md transition-transform z-30 flex items-center justify-center">
   
   <div class="w-2/3 h-2/3 bg-amber-50 rounded-lg border-2 border-amber-400 overflow-hidden relative shadow-sm pointer-events-none">
     <% if item.image.attached? %>
