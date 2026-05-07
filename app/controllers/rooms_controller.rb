@@ -23,6 +23,10 @@ class RoomsController < ApplicationController
   def show
     @room_characters = @room.room_characters.includes(:character)
     @available_characters = current_user.characters
+    @notes = @room.notes
+      .where("public = ? OR user_id = ?", true, current_user.id)
+      .includes(:user)
+      .order(updated_at: :desc)
   end
 
   def update

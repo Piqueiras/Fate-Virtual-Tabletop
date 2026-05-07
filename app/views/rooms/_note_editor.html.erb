@@ -1,0 +1,93 @@
+<%# locals: note (nuevo o existente), room %>
+<% is_new = note.new_record? %>
+
+<div id="<%= is_new ? "note_editor_new" : "note_editor_#{note.id}" %>"
+     class="rounded-2xl border-2 border-indigo-300 bg-white p-4 shadow-md">
+
+  <div class="mb-3">
+    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Título</label>
+    <input type="text" name="note[title]"
+           id="<%= is_new ? "note_title_new" : "note_title_#{note.id}" %>"
+           value="<%= note.title %>"
+           placeholder="Título de la nota..."
+           class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm outline-none">
+  </div>
+
+  <div class="mb-3">
+    <div class="flex items-center justify-between mb-1">
+      <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Contenido (Markdown)</label>
+      <div class="flex items-center gap-1">
+        <button type="button" data-action="click->notes#insertImageRef"
+                class="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-lg transition"
+                title="Insertar imagen">🖼️ Imagen</button>
+        <button type="button" data-action="click->notes#openDrawingCanvas"
+                class="text-[10px] font-semibold text-amber-600 hover:text-amber-800 bg-amber-50 px-2 py-1 rounded-lg transition"
+                title="Insertar dibujo">✏️ Dibujo</button>
+      </div>
+    </div>
+    <textarea name="note[content]"
+              id="<%= is_new ? "note_content_new" : "note_content_#{note.id}" %>"
+              rows="6"
+              placeholder="Escribe en Markdown... Usa # para títulos, **negritas**, *cursiva*, listas, etc.&#10;&#10;Inserta imágenes y dibujos con los botones de arriba."
+              class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm outline-none resize-y font-mono"><%= note.content %></textarea>
+  </div>
+
+  <%# Canvas overlay para dibujar %>
+  <div id="<%= is_new ? "drawing_canvas_container_new" : "drawing_canvas_container_#{note.id}" %>"
+       class="hidden mb-3">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Dibujo</span>
+      <div class="flex items-center gap-1">
+        <button type="button" data-action="click->notes#clearDrawingCanvas"
+                class="text-[10px] font-semibold text-slate-500 hover:text-slate-700 bg-slate-100 px-2 py-1 rounded-lg transition">🗑️ Limpiar</button>
+      </div>
+    </div>
+    <div class="relative w-full aspect-video bg-white border-2 border-amber-200 rounded-xl overflow-hidden touch-none cursor-crosshair">
+      <canvas id="<%= is_new ? "drawing_canvas_new" : "drawing_canvas_#{note.id}" %>"
+              data-action="pointerdown->notes#startDrawingNote pointermove->notes#drawNote pointerup->notes#stopDrawingNote pointerout->notes#stopDrawingNote"
+              class="w-full h-full relative z-10"></canvas>
+      <img id="<%= is_new ? "drawing_preview_new" : "drawing_preview_#{note.id}" %>"
+           class="hidden absolute inset-0 z-20 w-full h-full object-contain pointer-events-none bg-white">
+    </div>
+    <div class="flex items-center gap-2 mt-2">
+      <input type="file" accept="image/*"
+             id="<%= is_new ? "drawing_file_input_new" : "drawing_file_input_#{note.id}" %>"
+             data-action="change->notes#handleDrawingFileUpload"
+             class="hidden">
+      <button type="button" data-action="click->notes#uploadDrawingImage"
+              class="text-[10px] font-semibold text-slate-500 hover:text-slate-700 bg-slate-100 px-2 py-1 rounded-lg transition">📁 Subir imagen</button>
+      <button type="button" data-action="click->notes#saveDrawing"
+              id="<%= is_new ? "save_drawing_btn_new" : "save_drawing_btn_#{note.id}" %>"
+              class="text-[10px] font-semibold text-amber-600 hover:text-amber-800 bg-amber-50 px-2 py-1 rounded-lg transition">💾 Guardar dibujo</button>
+      <button type="button" data-action="click->notes#closeDrawingCanvas"
+              class="text-[10px] font-semibold text-slate-400 hover:text-slate-600 px-2 py-1 rounded-lg transition">Cancelar</button>
+      <span id="<%= is_new ? "drawing_status_new" : "drawing_status_#{note.id}" %>"
+            class="text-[10px] text-slate-400 ml-auto"></span>
+    </div>
+  </div>
+
+  <%# Toggle público/privado %>
+  <div class="flex items-center gap-3 mb-3">
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" name="note[public]"
+             id="<%= is_new ? "note_public_new" : "note_public_#{note.id}" %>"
+             <%= note.public? ? "checked" : "" %>
+             class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+      <span class="text-xs text-slate-600">🌍 Nota pública (visible para todos)</span>
+    </label>
+  </div>
+
+  <%# Botones de acción %>
+  <div class="flex items-center gap-2 pt-2 border-t border-slate-100">
+    <button type="button" data-action="click->notes#cancelEdit"
+            data-note-id="<%= note.id %>"
+            class="flex-1 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">
+      Cancelar
+    </button>
+    <button type="button" data-action="click->notes#saveNote"
+            data-note-id="<%= note.id %>"
+            class="flex-1 py-2 rounded-xl bg-indigo-600 text-sm font-bold text-white hover:bg-indigo-700 shadow-md transition-colors active:scale-95">
+      <%= is_new ? "Crear Nota" : "Guardar Cambios" %>
+    </button>
+  </div>
+</div>

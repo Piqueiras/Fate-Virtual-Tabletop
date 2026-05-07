@@ -389,35 +389,74 @@
     </div>
   </main>
 
-  <aside class="border-l border-slate-200 bg-white p-6 flex flex-col h-[calc(100vh-6rem)] sticky top-6">
-    <div class="mb-6 shrink-0">
-      <h2 class="text-xl font-black text-slate-900">Registro</h2>
-    </div>
+  <aside class="border-l border-slate-200 bg-white p-6 flex flex-col h-[calc(100vh-6rem)] sticky top-6"
+         data-controller="notes" data-notes-room-id-value="<%= @room.id %>" data-action="beforeunload@window->notes#beforeUnlock">
 
-    <div class="mb-6 shrink-0 flex gap-2">
-      <button type="button" 
-          data-action="click->room-board#rollDice" 
-          data-user-name="<%= current_user.username %>"
-          class="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700 shadow-md transition-all active:scale-95">
-          <span class="text-lg">🎲</span> Lanzar
+    <%# ── Tabs ─────────────────────────── %>
+    <div class="mb-6 shrink-0 flex gap-1 p-1 bg-slate-100 rounded-full">
+      <button type="button" data-notes-target="tabLog" data-action="click->notes#switchToLog"
+              class="flex-1 py-2 px-3 rounded-full text-xs font-bold text-white bg-indigo-600 transition-colors">
+        📜 Registro
       </button>
-
-      <% if @room.dm == current_user %>
-        <button type="button" 
-            data-action="click->room-board#clearLog" 
-            class="flex items-center justify-center rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-100 shadow-sm transition-all active:scale-95"
-            title="Limpiar registro">
-            <span class="text-lg">🗑️</span>
-        </button>
-      <% end %>
+      <button type="button" data-notes-target="tabNotes" data-action="click->notes#switchToNotes"
+              class="flex-1 py-2 px-3 rounded-full text-xs font-bold text-slate-600 bg-slate-100 transition-colors">
+        📝 Notas
+      </button>
     </div>
 
-    <%= turbo_stream_from @room %>
+    <%# ── Panel Game Log ───────────────── %>
+    <div data-notes-target="gameLogPanel" class="flex flex-col flex-1 min-h-0">
+      <div class="mb-4 shrink-0 flex gap-2">
+        <button type="button" 
+            data-action="click->room-board#rollDice" 
+            data-user-name="<%= current_user.username %>"
+            class="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700 shadow-md transition-all active:scale-95">
+            <span class="text-lg">🎲</span> Lanzar
+        </button>
 
-    <div id="room_<%= @room.id %>_game_logs" class="space-y-3 overflow-y-auto flex-1 min-h-0 pb-4 pr-2" data-room-board-target="gameLogList">
-      <% @room.game_logs.order(created_at: :desc).each do |log| %>
-        <%= render partial: "game_logs/game_log", locals: { log: log } %>
+        <% if @room.dm == current_user %>
+          <button type="button" 
+              data-action="click->room-board#clearLog" 
+              class="flex items-center justify-center rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-100 shadow-sm transition-all active:scale-95"
+              title="Limpiar registro">
+              <span class="text-lg">🗑️</span>
+          </button>
+        <% end %>
+      </div>
+
+      <%= turbo_stream_from @room %>
+      <%= turbo_stream_from [@room, current_user] %>
+      <% if @room.dm == current_user %>
+        <%= turbo_stream_from [@room, @room.dm] %>
       <% end %>
+
+      <div id="room_<%= @room.id %>_game_logs" class="space-y-3 overflow-y-auto flex-1 min-h-0 pb-4 pr-2" data-room-board-target="gameLogList">
+        <% @room.game_logs.order(created_at: :desc).each do |log| %>
+          <%= render partial: "game_logs/game_log", locals: { log: log } %>
+        <% end %>
+      </div>
+    </div>
+
+    <%# ── Panel Notas ──────────────────── %>
+    <div data-notes-target="notesPanel" class="hidden flex flex-col flex-1 min-h-0">
+      <div class="mb-4 shrink-0">
+        <button type="button" data-action="click->notes#newNote" data-notes-target="newNoteBtn"
+                class="w-full flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700 shadow-md transition-all active:scale-95">
+          ✏️ Nueva Nota
+        </button>
+      </div>
+
+      <div id="notes_list" data-notes-target="notesList" class="space-y-3 overflow-y-auto flex-1 min-h-0 pb-4 pr-2">
+        <% is_dm_global = @room.dm == current_user %>
+        <% @notes.each do |note| %>
+          <% is_owner = note.user_id == current_user.id %>
+          <%= render "note", note: note,
+              is_owner: is_owner,
+              is_dm: is_dm_global,
+              can_edit: is_owner || is_dm_global || note.public?,
+              locked_by_me: note.locked_by?(current_user) %>
+        <% end %>
+      </div>
     </div>
   </aside>
 </div>

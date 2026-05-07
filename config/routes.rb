@@ -27,6 +27,17 @@ Rails.application.routes.draw do
     resources :room_characters, only: %i[create update destroy]
     resources :game_logs, only: %i[create]
     resources :items, only: %i[create update destroy]
+    resources :notes, only: %i[create update destroy] do
+      member do
+        patch :lock
+        patch :unlock
+        patch :force_unlock
+        post :attach_drawing
+        delete :remove_drawing
+        post :attach_image
+        get :last_attachment_signed_id
+      end
+    end
     delete :clear_game_logs, on: :member
   end
 

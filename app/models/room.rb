@@ -7,6 +7,7 @@ class Room < ApplicationRecord
   has_many :game_logs, dependent: :destroy
   # Cuando se borra una sala, se borran sus objetos
   has_many :items, dependent: :destroy
+  has_many :notes, dependent: :destroy
   has_one_attached :background_image
 
   validates :name, presence: true
