@@ -23,6 +23,8 @@ class RoomsController < ApplicationController
   def show
     @room_characters = @room.room_characters.includes(:character)
     @available_characters = current_user.characters
+    @combat = @room.active_combat
+    @is_dm = @room.dm == current_user
     @notes = @room.notes
       .where("public = ? OR user_id = ?", true, current_user.id)
       .includes(:user)

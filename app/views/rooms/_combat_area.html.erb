@@ -1,0 +1,50 @@
+<%# Área de combate — envoltura para el modal de setup y la barra de turnos %>
+<div id="room_<%= room.id %>_combat_area"
+     data-controller="combat"
+     data-combat-room-id-value="<%= room.id %>"
+     data-combat-is-dm-value="<%= is_dm %>"
+     data-combat-target="combatArea">
+
+  <%# Datos del combate activo (JSON para JS) %>
+  <% if combat.present? && combat.active? %>
+    <script type="application/json" data-combat-target="combatData">
+      <%= raw combat.serialized.to_json %>
+    </script>
+  <% end %>
+
+  <%# Botón "Iniciar Combate" — solo DM, solo si no hay combate activo %>
+  <% if is_dm && (combat.blank? || !combat.active?) %>
+    <div class="flex justify-center mb-2" data-combat-target="initiateBtn">
+      <button type="button" data-action="click->combat#openSetup"
+              class="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-5 py-3 text-sm font-bold text-white hover:bg-indigo-500 shadow-lg transition-all active:scale-95">
+        ⚔️ Iniciar combate
+      </button>
+    </div>
+  <% end %>
+
+  <%# Botones "Siguiente turno" y "Terminar Combate" — solo DM, si hay combate activo %>
+  <% if is_dm && combat.present? && combat.active? %>
+    <div class="flex justify-center items-center gap-3 mb-2" data-combat-target="endCombatBtn">
+      <button type="button" data-action="click->combat#nextTurn"
+              data-combat-id="<%= combat.id %>"
+              class="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 shadow-lg transition-all active:scale-95">
+        ▶ Siguiente turno
+      </button>
+      <button type="button" data-action="click->combat#endCombat"
+              data-combat-id="<%= combat.id %>"
+              class="inline-flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-500 shadow-lg transition-all active:scale-95">
+        🏁 Terminar combate
+      </button>
+    </div>
+  <% end %>
+
+  <%# Modal de configuración %>
+  <%= render "combat_setup_modal" %>
+
+  <%# Barra de turnos — visible cuando hay combate activo %>
+  <div id="turn_order_container" data-combat-target="turnOrderContainer">
+    <% if combat.present? && combat.active? %>
+      <%= render "turn_order_bar", combat: combat, is_dm: is_dm %>
+    <% end %>
+  </div>
+</div>

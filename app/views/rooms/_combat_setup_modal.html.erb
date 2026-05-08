@@ -1,0 +1,45 @@
+<%# Modal de configuración de combate — solo visible cuando se pulsa "Iniciar Combate" %>
+<div data-combat-target="setupModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
+  <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-4 max-h-[85vh] flex flex-col">
+    <%# Header %>
+    <div class="flex items-center justify-between p-6 border-b border-slate-200">
+      <h2 class="text-xl font-black text-slate-900">⚔️ Configurar combate</h2>
+      <button type="button" data-action="click->combat#closeSetup" class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition">×</button>
+    </div>
+
+    <%# Cuerpo %>
+    <div class="p-6 overflow-y-auto flex-1 space-y-6">
+      <%# Personajes disponibles (no asignados aún) %>
+      <div>
+        <h3 class="text-sm font-bold text-slate-600 uppercase tracking-widest mb-3">Personajes disponibles</h3>
+        <div data-combat-target="availablePool" class="min-h-[60px] p-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-wrap gap-2 items-start"
+             data-action="dragover->combat#allowPoolDrop dragenter->combat#allowPoolDrop dragleave->combat#leavePoolDrop drop->combat#dropToPool">
+          <p class="text-xs text-slate-400 w-full text-center pointer-events-none" data-combat-target="poolPlaceholder">Arrastra personajes desde aquí a los lotes</p>
+        </div>
+      </div>
+
+      <%# Lotes %>
+      <div>
+        <h3 class="text-sm font-bold text-slate-600 uppercase tracking-widest mb-3">Orden de turnos</h3>
+        <div data-combat-target="batchesContainer" class="space-y-3">
+          <%# Los lotes se generan dinámicamente vía JS %>
+        </div>
+      </div>
+
+      <%# Botón añadir lote %>
+      <button type="button" data-action="click->combat#addBatch" class="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-600 hover:bg-indigo-100 transition">
+        ＋ Añadir lote
+      </button>
+    </div>
+
+    <%# Footer %>
+    <div class="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+      <button type="button" data-action="click->combat#closeSetup" class="rounded-full bg-slate-100 px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-200 transition">
+        Cancelar
+      </button>
+      <button type="button" data-action="click->combat#saveAndStart" class="rounded-full bg-indigo-600 px-6 py-3 text-sm font-bold text-white hover:bg-indigo-700 shadow-md transition">
+        ⚡ Iniciar combate
+      </button>
+    </div>
+  </div>
+</div>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_07_143329) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_08_205028) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -56,6 +56,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_143329) do
     t.datetime "updated_at", null: false
     t.integer "user_id"
     t.index ["user_id"], name: "index_characters_on_user_id"
+  end
+
+  create_table "combat_batch_room_characters", force: :cascade do |t|
+    t.integer "combat_batch_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "room_character_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["combat_batch_id", "room_character_id"], name: "idx_cbrc_on_batch_and_character", unique: true
+    t.index ["combat_batch_id"], name: "index_combat_batch_room_characters_on_combat_batch_id"
+    t.index ["room_character_id"], name: "index_combat_batch_room_characters_on_room_character_id"
+  end
+
+  create_table "combat_batches", force: :cascade do |t|
+    t.integer "combat_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "position", null: false
+    t.datetime "updated_at", null: false
+    t.index ["combat_id"], name: "index_combat_batches_on_combat_id"
+  end
+
+  create_table "combats", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.integer "current_batch_index", default: 0, null: false
+    t.integer "room_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["room_id"], name: "index_combats_on_room_id"
   end
 
   create_table "game_logs", force: :cascade do |t|
@@ -137,6 +164,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_143329) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "characters", "users"
+  add_foreign_key "combat_batch_room_characters", "combat_batches"
+  add_foreign_key "combat_batch_room_characters", "room_characters"
+  add_foreign_key "combat_batches", "combats"
+  add_foreign_key "combats", "rooms"
   add_foreign_key "game_logs", "rooms"
   add_foreign_key "items", "characters"
   add_foreign_key "items", "rooms"

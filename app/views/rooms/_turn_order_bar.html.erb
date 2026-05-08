@@ -1,0 +1,27 @@
+<%# Barra de turnos — visible para todos cuando hay combate activo
+   Los botones de DM se controlan vía CSS/JS mediante data-combat-is-dm-value %>
+<div class="flex items-center justify-center gap-2 py-3 px-4 bg-slate-900 text-white rounded-2xl shadow-lg overflow-x-auto" id="turn_order_bar">
+  <% if combat && combat.combat_batches.any? %>
+    <span class="text-xs uppercase tracking-widest text-slate-400 mr-2 shrink-0">Turnos:</span>
+    <% combat.combat_batches.order(:position).each_with_index do |batch, index| %>
+      <div class="flex items-center gap-1 shrink-0">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all
+                    <%= index == combat.current_batch_index ? 'bg-indigo-500 text-white ring-2 ring-indigo-300 scale-110' : 'bg-slate-700 text-slate-300' %>">
+          <% batch.room_characters.includes(:character).each_with_index do |rc, i| %>
+            <span><%= rc.character.name %></span>
+            <% unless i == batch.room_characters.size - 1 %>
+              <span class="text-slate-500">,</span>
+            <% end %>
+          <% end %>
+          <% if batch.room_characters.empty? %>
+            <span class="text-slate-500 italic">Vacío</span>
+          <% end %>
+        </div>
+        <% unless index == combat.combat_batches.size - 1 %>
+          <span class="text-indigo-400 text-lg">→</span>
+        <% end %>
+      </div>
+    <% end %>
+
+  <% end %>
+</div>

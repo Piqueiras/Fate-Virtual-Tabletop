@@ -150,6 +150,9 @@
         </div>
       </div>
 
+      <%# ── Área de combate ───────────────── %>
+      <%= render "combat_area", room: @room, combat: @combat, is_dm: @is_dm %>
+
       <div class="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 min-h-[180px]" data-room-board-target="activeList" data-action="dragover->room-board#allowDrop dragenter->room-board#allowDrop dragleave->room-board#leaveDrop drop->room-board#dropActive">
         <div class="flex items-center justify-between gap-4 mb-4">
           <div>
@@ -159,7 +162,7 @@
           <span class="rounded-full bg-white px-3 py-1 text-xs uppercase tracking-widest text-slate-500 border border-slate-200">Drop zone</span>
         </div>
         
-        <div class="space-y-3">
+        <div id="room_<%= @room.id %>_active_characters" class="space-y-3">
           <% is_dm = @room.dm == current_user %>
           <% @room_characters.where(is_active: true).each do |room_character| %>
             <% character = room_character.character %>

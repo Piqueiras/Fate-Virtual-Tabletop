@@ -1,0 +1,217 @@
+<%# Lista de personajes activos — recibe locals: room_characters, is_dm %>
+<% rc_list = local_assigns.fetch(:room_characters, []).where(is_active: true) %>
+<% dm_flag = local_assigns.fetch(:is_dm, false) %>
+
+<% rc_list.each do |room_character| %>
+  <% character = room_character.character %>
+  <% aspects = Array(character.aspects || []) %>
+  <% skills_hash = character.skills || {} %>
+  <% skills_private = character.skills_private %>
+
+  <details data-room-board-room-character-id-value="<%= room_character.id %>" data-character-id="<%= character.id %>" class="relative rounded-3xl border border-slate-200 bg-white">
+    
+    <summary class="group grid cursor-pointer items-center grid-cols-[30%_minmax(0,1fr)_auto] gap-3 p-4 list-none">
+      <p class="character-name min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-semibold text-slate-900"><%= character.name %></p>
+      
+      <div class="flex items-center gap-5 text-xs text-slate-500 min-w-0">
+        <span class="inline-flex h-8 min-w-[2rem] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-2 text-sm font-semibold text-slate-900"><%= character.fate_points || 0 %></span>
+        
+        <div class="flex items-center gap-1 w-36">
+          <% character.physical_stress_capacity.times do |index| %>
+            <% filled = character.physical_stress_slot?(index) %>
+            <span class="h-7 w-7 shrink-0 rounded-full border-2 <%= filled ? 'border-red-600 bg-red-600' : 'border-red-600/70 bg-white' %>"></span>
+          <% end %>
+        </div>
+        
+        <div class="flex items-center gap-1">
+          <% character.mental_stress_capacity.times do |index| %>
+            <% filled = character.mental_stress_slot?(index) %>
+            <span class="h-7 w-7 shrink-0 rounded-full border-2 <%= filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white' %>"></span>
+          <% end %>
+        </div>
+      </div>
+      
+      <span class="text-xs uppercase tracking-widest text-slate-400 group-open:text-slate-500">Más</span>
+    </summary>
+
+    <button type="button" data-action="click->room-board#removeRoomCharacter" class="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200">
+      ×
+    </button>
+
+    <div class="border-t border-slate-200 px-4 pb-4 pt-4">
+      <div class="grid gap-4 lg:grid-cols-2">
+        
+        <div class="space-y-3">
+          <h4 class="text-xs uppercase tracking-widest text-slate-500">Aspectos</h4>
+          <% if aspects.any? %>
+            <div class="grid gap-2">
+              <% aspects.each do |aspect| %>
+                <% is_priv = aspect.is_a?(Hash) && (aspect["private"] == true || aspect["private"] == "true") %>
+                <% if is_priv && !dm_flag %>
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 blur-[4px] select-none">
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500">🔒 Privado</p>
+                    <p class="font-semibold text-slate-900">••••••••••••</p>
+                  </div>
+                <% else %>
+                  <% extra_class = is_priv ? 'ring-2 ring-violet-300' : '' %>
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 <%= extra_class %>">
+                    <p class="text-[10px] uppercase tracking-widest <%= is_priv ? 'text-violet-500' : 'text-slate-500' %>"><%= aspect["title"].presence || "Aspecto" %> <%= is_priv ? '🔒' : '' %></p>
+                    <p class="font-semibold text-slate-900"><%= aspect["name"].presence || "Sin nombre" %></p>
+                    <% if aspect["description"].present? %>
+                      <p class="mt-2 text-sm text-slate-600"><%= aspect["description"] %></p>
+                    <% end %>
+                  </div>
+                <% end %>
+              <% end %>
+            </div>
+          <% else %>
+            <p class="text-sm text-slate-500">Sin aspectos definidos.</p>
+          <% end %>
+        </div>
+
+        <div class="space-y-3">
+          <h4 class="text-xs uppercase tracking-widest text-slate-500">Pirámide de skills</h4>
+          <% if skills_private && !dm_flag %>
+            <div class="text-center py-4">
+              <div class="blur-[4px] select-none bg-slate-100 rounded-xl p-3">
+                <p class="text-sm text-transparent">••••••••••••</p>
+              </div>
+              <p class="text-xs text-slate-400 mt-2">🔒 Habilidades privadas</p>
+            </div>
+          <% else %>
+            <% Character::SKILLS_LEVELS.reverse.each do |level| %>
+              <% skills = Array(skills_hash[level[:key]]).reject(&:blank?) %>
+              <% next if skills.empty? %>
+              <div class="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                <span class="font-semibold text-slate-900"><%= level[:display] %></span>
+                <span class="text-slate-500">•</span>
+                <span class="flex flex-wrap gap-2">
+                  <% skills.each do |skill| %>
+                    <span class="rounded-full bg-white px-2 py-1 text-[11px] text-slate-700"><%= skill %></span>
+                  <% end %>
+                </span>
+              </div>
+            <% end %>
+            <% if Character::SKILLS_LEVELS.all? { |level| Array(skills_hash[level[:key]]).reject(&:blank?).empty? } %>
+              <p class="text-sm text-slate-500">Sin skills asignadas.</p>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+
+      <% consecuencias_reales = Array(character.consequences).reject(&:blank?) %>
+      <% if skills_private && !dm_flag && consecuencias_reales.any? %>
+        <div class="mt-4 space-y-3">
+          <h4 class="text-xs uppercase tracking-widest text-slate-500">Consecuencias</h4>
+          <div class="blur-[4px] select-none bg-slate-100 rounded-xl p-3">
+            <p class="text-sm text-transparent">••••••••••••</p>
+          </div>
+        </div>
+      <% elsif consecuencias_reales.any? %>
+        <div class="mt-4 space-y-3">
+          <h4 class="text-xs uppercase tracking-widest text-slate-500">Consecuencias</h4>
+          <div class="grid gap-2 sm:grid-cols-2">
+            <% consecuencias_reales.each do |cons| %>
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                <%= cons %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <% stunts_list = Array(character.stunts || []) %>
+      <% if stunts_list.any? %>
+        <div class="mt-4 space-y-3">
+          <h4 class="text-xs uppercase tracking-widest text-slate-500">Proezas</h4>
+          <div class="space-y-2">
+            <% stunts_list.each do |st| %>
+              <% is_stunt_priv = st.is_a?(Hash) && (st["private"] == true || st["private"] == "true") %>
+              <% if is_stunt_priv && !dm_flag %>
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-2 blur-[4px] select-none">
+                  <p class="text-[20px] text-slate-500">••••••••••••</p>
+                </div>
+              <% else %>
+                <% extra_st = is_stunt_priv ? 'ring-2 ring-violet-300' : '' %>
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-2 <%= extra_st %>">
+                  <p class="text-[20px] font-semibold <%= is_stunt_priv ? 'text-violet-600' : 'text-slate-700' %>">
+                    <%= st.is_a?(Hash) ? st["title"].presence || "Proeza" : st.to_s %>
+                    <% if st.is_a?(Hash) && st["skill"].present? %>
+                      <span class="text-slate-400 font-normal">— <%= st["skill"] %></span>
+                    <% end %>
+                    <%= is_stunt_priv ? ' 🔒' : '' %>
+                  </p>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <div class="mt-4 grid gap-3 sm:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <p class="text-xs uppercase tracking-widest text-slate-500">Destino</p>
+          <div class="mt-2 flex items-center gap-2">
+            <% if dm_flag %>
+              <button type="button" data-action="click->room-board#changeFatePoints" data-fate-delta="-1" class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:bg-slate-100">-</button>
+            <% end %>
+            <span data-room-board-target="fatePoints" class="min-w-[2rem] text-center font-semibold text-slate-900"><%= character.fate_points || 0 %></span>
+            <% if dm_flag %>
+              <button type="button" data-action="click->room-board#changeFatePoints" data-fate-delta="1" class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:bg-slate-100">+</button>
+            <% end %>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <p class="text-xs uppercase tracking-widest text-slate-500">Estrés</p>
+          <% if skills_private && !dm_flag %>
+            <div class="text-center py-2">
+              <div class="blur-[4px] select-none bg-slate-100 rounded-xl p-2 inline-block">
+                <div class="flex gap-1">
+                  <% 3.times do %>
+                    <span class="h-7 w-7 shrink-0 rounded-full border-2 border-slate-300 bg-white"></span>
+                  <% end %>
+                </div>
+              </div>
+              <p class="text-[10px] text-slate-400 mt-1">Privado</p>
+            </div>
+          <% else %>
+            <div class="mt-2 space-y-2">
+              <div>
+                <p class="text-[10px] uppercase tracking-widest text-slate-500">Físico</p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <% character.physical_stress_capacity.times do |index| %>
+                    <% filled = character.physical_stress_slot?(index) %>
+                    <% if dm_flag %>
+                      <button type="button" data-action="click->room-board#toggleStressSlot" data-stress-type="physical" data-stress-index="<%= index %>" data-filled="<%= filled %>" aria-pressed="<%= filled %>" class="h-8 w-8 rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-0 cursor-pointer <%= filled ? 'border-red-600 bg-red-600' : 'border-red-600/70 bg-white' %>"></button>
+                    <% else %>
+                      <span class="h-8 w-8 rounded-full border-2 <%= filled ? 'border-red-600 bg-red-600' : 'border-red-600/70 bg-white' %> flex items-center justify-center text-xs font-bold text-slate-600"><%= index + 1 %></span>
+                    <% end %>
+                  <% end %>
+                </div>
+              </div>
+              <div>
+                <p class="text-[10px] uppercase tracking-widest text-slate-500">Mental</p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <% character.mental_stress_capacity.times do |index| %>
+                    <% filled = character.mental_stress_slot?(index) %>
+                    <% if dm_flag %>
+                      <button type="button" data-action="click->room-board#toggleStressSlot" data-stress-type="mental" data-stress-index="<%= index %>" data-filled="<%= filled %>" aria-pressed="<%= filled %>" class="h-8 w-8 rounded-full border-2 transition-colors duration-150 focus:outline-none focus:ring-0 cursor-pointer <%= filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white' %>"></button>
+                    <% else %>
+                      <span class="h-8 w-8 rounded-full border-2 <%= filled ? 'border-blue-600 bg-blue-600' : 'border-blue-600/70 bg-white' %> flex items-center justify-center text-xs font-bold text-slate-600"><%= index + 1 %></span>
+                    <% end %>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-3 border-t border-slate-200">
+        <%= link_to "📋 Ver ficha completa", character_path(character, room_id: room_character.room_id), class: "text-xs text-indigo-600 hover:text-indigo-800 font-semibold", target: "_blank" %>
+      </div>
+
+    </div>
+  </details>
+<% end %>
