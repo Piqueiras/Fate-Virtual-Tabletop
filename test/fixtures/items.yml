@@ -1,19 +1,6 @@
-# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
-
-one:
-  room: one
-  character: one
-  name: MyString
-  description: MyText
-  pos_x: 1
-  pos_y: 1
-  on_board: false
-
-two:
-  room: two
-  character: two
-  name: MyString
-  description: MyText
-  pos_x: 1
-  pos_y: 1
-  on_board: false
+# Items fixtures
+# Add items only when you have room and character fixtures set up:
+# one:
+#   room: one
+#   character: one
+#   name: MyString

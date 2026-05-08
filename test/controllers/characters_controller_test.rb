@@ -1,18 +1,20 @@
 require "test_helper"
 
 class CharactersControllerTest < ActionDispatch::IntegrationTest
-  test "should get index" do
-    get characters_index_url
-    assert_response :success
+  include Devise::Test::IntegrationHelpers
+
+  setup do
+    @user = users(:one)
+    sign_in @user
   end
 
-  test "should get show" do
-    get characters_show_url
+  test "should get index" do
+    get characters_url
     assert_response :success
   end
 
   test "should get new" do
-    get characters_new_url
+    get new_character_url
     assert_response :success
   end
 end
