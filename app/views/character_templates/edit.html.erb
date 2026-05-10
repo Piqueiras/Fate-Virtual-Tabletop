@@ -1,0 +1,9 @@
+<div class="max-w-2xl mx-auto mt-10 bg-white p-8 rounded-xl shadow-md border border-gray-100">
+  <h1 class="text-3xl font-bold text-gray-800 mb-6">Editar Plantilla</h1>
+
+  <%= render "form", template: @template %>
+
+  <div class="mt-4 text-center">
+    <%= link_to "Cancelar", character_templates_path, class: "text-gray-500 hover:underline" %>
+  </div>
+</div>

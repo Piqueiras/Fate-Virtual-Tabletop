@@ -761,17 +761,11 @@ export default class extends Controller {
     const url = `/rooms/${this.roomIdValue}/room_characters`
     const tokenMeta = document.querySelector("meta[name='csrf-token']")
 
-    // Guardar canvas primero para no perderlo al recargar
-    this.saveCanvasSync().then(() => {
-      fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
-        body: JSON.stringify({ room_character: { character_id: parseInt(characterId, 10), pos_x: x, pos_y: y, is_active: true } }),
-      })
-        .then((response) => response.ok ? response.json() : Promise.reject(response))
-        .then(() => window.location.reload())
-        .catch((error) => console.error("Error creando token en la sala", error))
-    })
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+      body: JSON.stringify({ room_character: { character_id: parseInt(characterId, 10), pos_x: x, pos_y: y, is_active: true } }),
+    }).catch((error) => console.error("Error creando token en la sala", error))
   }
 
   removeRoomCharacter(event) {
@@ -815,25 +809,21 @@ export default class extends Controller {
   assignItemToCharacter(itemId, characterId) {
     const url = `/rooms/${this.roomIdValue}/items/${itemId}`
     const tokenMeta = document.querySelector("meta[name='csrf-token']")
-    this.saveCanvasSync().then(() => {
-      fetch(url, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
-        body: JSON.stringify({ item: { character_id: characterId, on_board: false } }),
-      }).then(() => window.location.reload())
-    })
+    fetch(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+      body: JSON.stringify({ item: { character_id: characterId, on_board: false } }),
+    }).catch((error) => console.error("Error asignando objeto a personaje", error))
   }
 
   dropItemOnBoard(itemId, x, y) {
     const url = `/rooms/${this.roomIdValue}/items/${itemId}`
     const tokenMeta = document.querySelector("meta[name='csrf-token']")
-    this.saveCanvasSync().then(() => {
-      fetch(url, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
-        body: JSON.stringify({ item: { character_id: null, on_board: true, pos_x: Math.round(x), pos_y: Math.round(y) } }),
-      }).then(() => window.location.reload())
-    })
+    fetch(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": tokenMeta?.content },
+      body: JSON.stringify({ item: { character_id: null, on_board: true, pos_x: Math.round(x), pos_y: Math.round(y) } }),
+    }).catch((error) => console.error("Error soltando objeto en el tablero", error))
   }
 
   // ==========================================

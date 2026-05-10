@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_08_205028) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_204350) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
     t.datetime "created_at", null: false
@@ -37,6 +37,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_08_205028) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "character_templates", force: :cascade do |t|
+    t.json "aspects"
+    t.json "consequences"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.json "extras"
+    t.string "name"
+    t.json "skills"
+    t.boolean "skills_private"
+    t.json "stunts"
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["user_id"], name: "index_character_templates_on_user_id"
   end
 
   create_table "characters", force: :cascade do |t|
@@ -163,6 +178,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_08_205028) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "character_templates", "users"
   add_foreign_key "characters", "users"
   add_foreign_key "combat_batch_room_characters", "combat_batches"
   add_foreign_key "combat_batch_room_characters", "room_characters"

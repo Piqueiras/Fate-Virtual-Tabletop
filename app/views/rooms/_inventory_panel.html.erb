@@ -1,0 +1,40 @@
+<%# Panel de inventario — recibe locals: room, user %>
+<% room = local_assigns.fetch(:room) %>
+<% user = local_assigns.fetch(:user) %>
+
+<div id="inventory_panel_user_<%= user.id %>" class="space-y-4 overflow-y-auto flex-1 pb-4 pr-2">
+  <% user.characters.each do |character| %>
+    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200" data-character-id="<%= character.id %>">
+      <h3 class="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2">
+        <div class="w-2 h-2 rounded-full bg-indigo-500"></div>
+        <%= character.name %>
+      </h3>
+
+      <div class="space-y-2 min-h-[40px]">
+        <% items = room.items.where(character_id: character.id, on_board: false) %>
+
+        <% if items.empty? %>
+          <p class="text-[10px] text-slate-400 font-medium text-center py-2 italic border border-dashed border-slate-300 rounded-xl pointer-events-none">Vacío</p>
+        <% else %>
+          <% items.each do |item| %>
+            <div class="flex items-center gap-3 p-2 bg-white rounded-xl shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:border-indigo-300 transition-colors"
+                 draggable="true"
+                 data-action="dragstart->room-board#startItemDrag dragend->room-board#endItemDrag"
+                 data-item-id="<%= item.id %>">
+              <div class="w-8 h-8 shrink-0 bg-amber-50 rounded-lg border border-amber-200 overflow-hidden flex items-center justify-center">
+                <% if item.image.attached? %>
+                  <%= image_tag rails_storage_proxy_path(item.image), class: "w-full h-full object-cover pointer-events-none" %>
+                <% else %>
+                  <span class="text-sm pointer-events-none">📦</span>
+                <% end %>
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-slate-700 truncate"><%= item.name %></p>
+              </div>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

@@ -1,10 +1,15 @@
-<div class="space-y-6">
+<div class="max-w-[90rem] mx-auto space-y-6">
   <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <h1 class="text-4xl font-black text-slate-900">Salas</h1>
       <p class="text-slate-600">Lista de salas públicas y privadas disponibles.</p>
     </div>
-    <%= link_to "Crear Sala", new_room_path, class: "inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700 transition" %>
+    <div class="flex flex-wrap items-center gap-4 p-4 bg-white rounded-2xl">
+      <%= link_to new_room_path, class: "flex items-center gap-2 bg-indigo-600 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all duration-200 active:scale-95 active:translate-y-0" do %>
+        <span class="text-xl">✨</span>
+        <span>Crear Sala</span>
+      <% end %>
+    </div>
   </div>
 
   <div class="grid gap-4">

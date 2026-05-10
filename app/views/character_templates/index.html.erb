@@ -1,0 +1,97 @@
+<div class="max-w-[90rem] mx-auto mt-10 p-4">
+  <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
+    <div>
+      <h1 class="text-4xl font-extrabold text-gray-800">Mis Plantillas</h1>
+      <p class="text-sm text-slate-500 mt-2">Crea personajes rápidamente a partir de plantillas reutilizables.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-4 p-4 bg-white rounded-2xl">
+      <div class="flex flex-wrap gap-2">
+        <%= link_to characters_path, class: "group flex items-center gap-2 bg-white text-slate-600 font-semibold py-2.5 px-4 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-200 active:scale-95" do %>
+          <span class="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
+          <span>Mis Personajes</span>
+        <% end %>
+      </div>
+
+      <%= link_to new_character_template_path, class: "flex items-center gap-2 bg-indigo-600 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all duration-200 active:scale-95 active:translate-y-0" do %>
+        <span class="text-xl">✨</span>
+        <span>Nueva Plantilla</span>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+    <% @templates.each do |template| %>
+      <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden flex flex-col">
+        <div class="h-48 bg-gray-100 flex justify-center items-center overflow-hidden">
+          <% if template.avatar.attached? %>
+            <%= image_tag template.avatar, class: "w-full h-full object-cover" %>
+          <% else %>
+            <span class="text-gray-400 font-medium">Sin imagen</span>
+          <% end %>
+        </div>
+
+        <div class="p-5 flex flex-col flex-grow justify-between">
+          <h2 class="text-2xl font-bold text-gray-900 mb-3"><%= template.name %></h2>
+
+          <% if template.description.present? %>
+            <p class="text-sm text-slate-600 mb-4 line-clamp-2"><%= template.description %></p>
+          <% end %>
+
+          <div class="flex items-center gap-2 text-xs text-slate-500 mb-4">
+            <% aspects_count = Array(template.aspects).size %>
+            <% skills_count = (template.skills.is_a?(Hash) ? template.skills.values.flatten.reject(&:blank?).size : 0) %>
+            <span class="bg-slate-100 px-2 py-1 rounded-full"><%= aspects_count %> aspectos</span>
+            <span class="bg-slate-100 px-2 py-1 rounded-full"><%= skills_count %> skills</span>
+          </div>
+
+          <div class="mt-4 space-y-2">
+            <!-- Botón "Crear a partir de plantilla" — muestra un modal inline para pedir nombre -->
+            <button type="button"
+                    onclick="document.getElementById('name_modal_<%= template.id %>').classList.remove('hidden')"
+                    class="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition cursor-pointer">
+              📋 Usar plantilla
+            </button>
+
+            <!-- Modal inline para pedir el nombre -->
+            <div id="name_modal_<%= template.id %>" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+                <h3 class="text-lg font-bold text-slate-900 mb-1">Crear personaje desde plantilla</h3>
+                <p class="text-sm text-slate-500 mb-4">Plantilla: <strong><%= template.name %></strong></p>
+
+                <%= form_tag create_character_character_template_path(template), method: :post do %>
+                  <div class="mb-4">
+                    <%= label_tag :character_name, "Nombre del personaje", class: "block text-sm font-medium text-gray-700 mb-1" %>
+                    <%= text_field_tag :character_name, "", placeholder: "Ej: #{template.name}", class: "w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" %>
+                  </div>
+                  <div class="flex gap-3 justify-end">
+                    <button type="button"
+                            onclick="document.getElementById('name_modal_<%= template.id %>').classList.add('hidden')"
+                            class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition cursor-pointer">
+                      Cancelar
+                    </button>
+                    <%= submit_tag "Crear Personaje", class: "bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition cursor-pointer" %>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <%= link_to "✏️ Editar", edit_character_template_path(template), class: "flex-1 text-center bg-slate-100 text-slate-700 font-bold py-2 px-4 rounded-lg hover:bg-slate-200 transition" %>
+              <%= button_to "🗑️", character_template_path(template), method: :delete,
+                    form: { data: { turbo_confirm: "¿Eliminar esta plantilla? Los personajes ya creados no se verán afectados." } },
+                    class: "bg-red-50 text-red-600 font-bold py-2 px-3 rounded-lg hover:bg-red-100 transition cursor-pointer" %>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <% if @templates.empty? %>
+    <div class="text-center py-20">
+      <p class="text-slate-400 text-lg">No tienes plantillas todavía.</p>
+      <p class="text-slate-400 text-sm mt-2">Crea una desde cero o guarda un personaje como plantilla.</p>
+      <%= link_to "Nueva Plantilla", new_character_template_path, class: "mt-6 inline-block bg-indigo-600 text-white font-bold py-2 px-6 rounded-xl hover:bg-indigo-700 transition" %>
+    </div>
+  <% end %>
+</div>

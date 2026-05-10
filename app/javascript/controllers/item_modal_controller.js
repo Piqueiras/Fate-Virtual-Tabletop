@@ -123,8 +123,8 @@ export default class extends Controller {
     })
     .then(response => response.ok ? response.json() : Promise.reject(response))
     .then(() => {
-      // Recargamos la página para ver el objeto en el tablero y el mensaje en el chat
-      window.location.reload() 
+      // El modelo Item ya emite broadcast_append_to al tablero y broadcast al game_log
+      this.close()
     })
     .catch(error => {
       console.error('Error creando objeto', error)

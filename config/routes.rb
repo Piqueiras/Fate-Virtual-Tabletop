@@ -46,5 +46,11 @@ Rails.application.routes.draw do
     delete :clear_game_logs, on: :member
   end
 
+  resources :character_templates, only: %i[index new create edit update destroy] do
+    member do
+      post :create_character
+    end
+  end
+
   root "home#index"
 end

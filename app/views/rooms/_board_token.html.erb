@@ -9,7 +9,7 @@
   
   <div class="w-full h-full rounded-full border-2 border-indigo-500 shadow-lg overflow-hidden bg-slate-100 pointer-events-none">
     <% if room_character.character.avatar.attached? %>
-      <%= image_tag room_character.character.avatar, class: "h-full w-full object-cover", alt: "", loading: "eager" %>
+      <%= image_tag rails_storage_proxy_path(room_character.character.avatar), class: "h-full w-full object-cover", alt: "", loading: "eager" %>
     <% end %>
   </div>
 

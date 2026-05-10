@@ -5,6 +5,7 @@ class User < ApplicationRecord
          :rememberable, :validatable, authentication_keys: [:username], password_length: 1..128
 
   has_many :characters, dependent: :destroy
+  has_many :character_templates, dependent: :destroy
   has_many :rooms, foreign_key: :dm_id, dependent: :destroy
 
   validates :username, presence: true, uniqueness: { case_sensitive: false }

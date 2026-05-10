@@ -8,7 +8,7 @@
   
   <div class="w-2/3 h-2/3 bg-amber-50 rounded-lg border-2 border-amber-400 overflow-hidden relative shadow-sm pointer-events-none">
     <% if item.image.attached? %>
-      <%= image_tag item.image, class: "w-full h-full object-cover", loading: "eager" %>
+      <%= image_tag rails_storage_proxy_path(item.image), class: "w-full h-full object-cover", loading: "eager" %>
     <% else %>
       <div class="w-full h-full flex items-center justify-center text-xl">📦</div>
     <% end %>

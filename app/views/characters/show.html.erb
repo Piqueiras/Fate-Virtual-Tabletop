@@ -3,11 +3,12 @@
   <% is_dm_room = @room&.dm_id == current_user.id %>
   <% can_see_private = owner || is_dm_room %>
   <div class="flex justify-between items-center mb-8 border-b pb-4">
-    <%= link_to "← Volver", request.referer || characters_path, class: "text-gray-500 hover:text-indigo-600 font-medium transition" %>
+    <%= link_to "← Volver", @room ? room_path(@room) : characters_path, class: "text-gray-500 hover:text-indigo-600 font-medium transition" %>
     <div class="flex flex-wrap gap-3 items-center">
       <% if owner %>
         <%= link_to "Editar Ficha", edit_character_path(@character), class: "bg-amber-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-amber-600 shadow-sm transition" %>
         <%= link_to "Exportar JSON", export_character_path(@character, format: :json), class: "bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-semibold hover:bg-slate-100 transition", target: "_blank" %>
+        <%= button_to "💾 Guardar como plantilla", character_templates_path(character_id: @character.id), method: :post, class: "bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-600 shadow-sm transition", form: { class: "inline" } %>
         <%= link_to "Eliminar", character_path(@character), data: { turbo_method: :delete, turbo_confirm: "¿Borrar personaje?" }, class: "bg-red-50 text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-red-100 transition" %>
         <%= button_to(@character.public? ? "Marcar como privado" : "Marcar como público", toggle_visibility_character_path(@character), method: :patch, class: "bg-slate-900 text-white px-4 py-2 rounded-lg font-bold hover:bg-slate-800 transition", form: { class: "inline" }) %>
       <% else %>

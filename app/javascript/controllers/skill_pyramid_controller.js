@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["pool", "level"]
+  static values = { prefix: { type: String, default: "character" } }
 
   connect() {
     this.element.querySelectorAll(".skill-chip").forEach((chip) => {
@@ -47,7 +48,7 @@ export default class extends Controller {
   hiddenInput(skill, level) {
     const input = document.createElement("input")
     input.type = "hidden"
-    input.name = `character[skills][${level}][]`
+    input.name = `${this.prefixValue}[skills][${level}][]`
     input.value = skill
     return input
   }

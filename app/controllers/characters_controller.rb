@@ -1,6 +1,6 @@
 class CharactersController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_show_character, only: %i[show export]
+  before_action :set_show_character, only: %i[show export destroy]
   before_action :set_character, only: %i[edit update toggle_visibility]
 
   def index
@@ -99,6 +99,11 @@ class CharactersController < ApplicationController
 
   def export
     render json: @character.permanent_export
+  end
+
+  def destroy
+    @character.destroy
+    redirect_to characters_path, notice: "Personaje eliminado."
   end
 
   def toggle_visibility
